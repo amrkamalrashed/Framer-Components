@@ -630,15 +630,273 @@ import dayjs from "dayjs"
 
 ---
 
-## Testing Checklist Before Committing
+## GSAP in Framer Components
 
-1. Component renders without errors on Framer canvas
-2. All property controls appear and function correctly
-3. Default values produce a sensible visual output
-4. Component responds to property changes in real-time
-5. Preview mode shows full interactivity and animations
-6. Keyboard navigation works for interactive elements
-7. No console errors or warnings
-8. Component handles missing/undefined props gracefully
-9. RTL layout is visually correct (if applicable)
-10. Reduced motion preference is respected
+GSAP (GreenSock Animation Platform) provides timeline-based animations, ScrollTrigger, and advanced easing beyond what Framer Motion offers. Import via ESM:
+
+```tsx
+import gsap from "https://esm.sh/gsap@3.12.5"
+import { ScrollTrigger } from "https://esm.sh/gsap@3.12.5/ScrollTrigger"
+```
+
+### GSAP Setup Pattern
+```tsx
+import { useRef, useEffect } from "react"
+import { RenderTarget } from "framer"
+
+export default function GSAPComponent(props: Props) {
+    const containerRef = useRef<HTMLDivElement>(null)
+    const isCanvas = RenderTarget.current() === "canvas"
+
+    useEffect(() => {
+        if (isCanvas || !containerRef.current) return
+        if (typeof window === "undefined") return
+
+        // Register plugins
+        gsap.registerPlugin(ScrollTrigger)
+
+        const ctx = gsap.context(() => {
+            // All GSAP animations scoped to this container
+            gsap.from(".animate-item", {
+                y: 50,
+                opacity: 0,
+                stagger: 0.1,
+                duration: 0.8,
+                ease: "power3.out",
+                scrollTrigger: {
+                    trigger: containerRef.current,
+                    start: "top 80%",
+                    end: "bottom 20%",
+                    toggleActions: "play none none reverse",
+                },
+            })
+        }, containerRef)
+
+        // CRITICAL: cleanup kills all GSAP animations in this scope
+        return () => ctx.revert()
+    }, [isCanvas])
+
+    if (isCanvas) {
+        return <div style={props.style}>GSAP Component Preview</div>
+    }
+
+    return (
+        <div ref={containerRef} style={props.style}>
+            <div className="animate-item">Content</div>
+        </div>
+    )
+}
+```
+
+### GSAP Rules
+- **Always use `gsap.context()`** and call `ctx.revert()` in cleanup - prevents memory leaks
+- **Always skip on canvas** - GSAP animations thrash the Framer editor
+- **Always guard with `typeof window`** - GSAP needs the DOM
+- **Register plugins once** in the effect, not at module level
+- **Use ScrollTrigger** for scroll-linked animations (more control than Framer Motion's `useScroll`)
+- **Expose animation values** as property controls: duration, delay, ease, stagger
+- **Respect reduced motion**: check `prefers-reduced-motion` and set `duration: 0`
+
+### GSAP + Framer Motion Coexistence
+- Use **Framer Motion** for: simple enter/exit, hover/tap, layout animations, spring physics
+- Use **GSAP** for: complex timelines, ScrollTrigger with pinning, morphing, text splitting, stagger sequences
+- Don't animate the same element with both - pick one per element
+
+### Available GSAP Plugins (free)
+```tsx
+import { ScrollTrigger } from "https://esm.sh/gsap@3.12.5/ScrollTrigger"
+import { TextPlugin } from "https://esm.sh/gsap@3.12.5/TextPlugin"
+import { Draggable } from "https://esm.sh/gsap@3.12.5/Draggable"
+import { Flip } from "https://esm.sh/gsap@3.12.5/Flip"
+import { Observer } from "https://esm.sh/gsap@3.12.5/Observer"
+```
+
+---
+
+## WebGL in Framer Components
+
+For advanced 3D graphics, particle systems, and shader effects. Use **Three.js** or raw WebGL.
+
+### Three.js Setup Pattern
+```tsx
+import { useRef, useEffect, useState } from "react"
+import { RenderTarget } from "framer"
+
+// Import Three.js via ESM
+import * as THREE from "https://esm.sh/three@0.162.0"
+
+export default function WebGLComponent(props: Props) {
+    const mountRef = useRef<HTMLDivElement>(null)
+    const isCanvas = RenderTarget.current() === "canvas"
+
+    useEffect(() => {
+        if (isCanvas || !mountRef.current) return
+        if (typeof window === "undefined") return
+
+        const container = mountRef.current
+        const width = container.clientWidth
+        const height = container.clientHeight
+
+        // Setup
+        const scene = new THREE.Scene()
+        const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000)
+        const renderer = new THREE.WebGLRenderer({
+            alpha: true,           // transparent background
+            antialias: true,
+            powerPreference: "high-performance",
+        })
+        renderer.setSize(width, height)
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)) // cap for performance
+        container.appendChild(renderer.domElement)
+
+        // Your 3D scene here
+        const geometry = new THREE.BoxGeometry(1, 1, 1)
+        const material = new THREE.MeshStandardMaterial({ color: props.color })
+        const mesh = new THREE.Mesh(geometry, material)
+        scene.add(mesh)
+
+        const light = new THREE.DirectionalLight(0xffffff, 1)
+        light.position.set(5, 5, 5)
+        scene.add(light)
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5))
+
+        camera.position.z = 3
+
+        // Animation loop
+        let animationId: number
+        const animate = () => {
+            animationId = requestAnimationFrame(animate)
+            mesh.rotation.x += 0.01
+            mesh.rotation.y += 0.01
+            renderer.render(scene, camera)
+        }
+        animate()
+
+        // Resize handler
+        const onResize = () => {
+            const w = container.clientWidth
+            const h = container.clientHeight
+            camera.aspect = w / h
+            camera.updateProjectionMatrix()
+            renderer.setSize(w, h)
+        }
+        window.addEventListener("resize", onResize)
+
+        // CRITICAL: Full cleanup
+        return () => {
+            cancelAnimationFrame(animationId)
+            window.removeEventListener("resize", onResize)
+            renderer.dispose()
+            geometry.dispose()
+            material.dispose()
+            container.removeChild(renderer.domElement)
+        }
+    }, [isCanvas, props.color])
+
+    if (isCanvas) {
+        return (
+            <div style={{
+                ...props.style,
+                display: "grid",
+                placeItems: "center",
+                background: "#1a1a2e",
+                color: "#fff",
+                fontSize: 14,
+            }}>
+                WebGL Component
+            </div>
+        )
+    }
+
+    return (
+        <div
+            ref={mountRef}
+            style={{ ...props.style, width: "100%", height: "100%", overflow: "hidden" }}
+        />
+    )
+}
+```
+
+### WebGL Rules
+- **Always show canvas placeholder** - WebGL won't render in the Framer editor
+- **Always dispose resources** - `renderer.dispose()`, `geometry.dispose()`, `material.dispose()`, `texture.dispose()`
+- **Cap pixel ratio** at 2 - `Math.min(window.devicePixelRatio, 2)` prevents performance issues on high-DPI screens
+- **Use `alpha: true`** for transparent backgrounds that blend with Framer's design
+- **Limit draw calls** - merge geometries, use instancing for repeated objects
+- **Use `requestAnimationFrame`** and cancel it in cleanup
+- **Expose visual properties** as controls: colors, speed, intensity, particle count
+- **Lazy load Three.js** - it's large (~600KB), only load when component mounts outside canvas
+
+### WebGL Libraries for Framer
+```tsx
+// Three.js - Full 3D engine
+import * as THREE from "https://esm.sh/three@0.162.0"
+
+// OGL - Lightweight WebGL (smaller than Three.js)
+import { Renderer, Camera, Program, Mesh } from "https://esm.sh/ogl@1.0.3"
+
+// PIXI.js - 2D WebGL rendering (particles, filters)
+import * as PIXI from "https://esm.sh/pixi.js@7.3.3"
+```
+
+### Shader Pattern (Custom GLSL)
+```tsx
+// For custom visual effects, write GLSL shaders:
+const vertexShader = `
+    varying vec2 vUv;
+    void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+`
+
+const fragmentShader = `
+    uniform float uTime;
+    uniform vec3 uColor;
+    varying vec2 vUv;
+    void main() {
+        float wave = sin(vUv.x * 10.0 + uTime) * 0.5 + 0.5;
+        gl_FragColor = vec4(uColor * wave, 1.0);
+    }
+`
+
+// Use with Three.js ShaderMaterial:
+const material = new THREE.ShaderMaterial({
+    vertexShader,
+    fragmentShader,
+    uniforms: {
+        uTime: { value: 0 },
+        uColor: { value: new THREE.Color(props.color) },
+    },
+})
+
+// Update in animation loop:
+material.uniforms.uTime.value = clock.getElapsedTime()
+```
+
+---
+
+## Testing & Validation
+
+### Automated Checks (run before committing)
+```bash
+npm run test        # Full: validate + typecheck + lint
+npm run test:quick  # Fast: standards validator only
+npm run validate    # Framer standards checker
+npm run typecheck   # TypeScript compilation
+npm run lint        # ESLint
+```
+
+### Testing Checklist Before Committing
+
+1. Run `npm run validate` - all checks pass
+2. Component renders without errors on Framer canvas
+3. All property controls appear and function correctly
+4. Default values produce a sensible visual output
+5. Component responds to property changes in real-time
+6. Preview mode shows full interactivity and animations
+7. Keyboard navigation works for interactive elements
+8. No console errors or warnings
+9. Component handles missing/undefined props gracefully
+10. RTL layout is visually correct (if applicable)
+11. Reduced motion preference is respected

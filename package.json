@@ -1,0 +1,29 @@
+{
+  "name": "framer-components",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Framer code component library with validation and type checking",
+  "scripts": {
+    "validate": "node scripts/validate-components.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint 'components/**/*.tsx'",
+    "test": "npm run validate && npm run typecheck && npm run lint",
+    "test:quick": "npm run validate"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react": "^7.34.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "framer": "^2.0.0",
+    "framer-motion": "^11.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  }
+}
