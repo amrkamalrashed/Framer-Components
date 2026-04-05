@@ -30,10 +30,17 @@ This is a **Framer code component library** - a storage repo of reusable `.tsx` 
 - **Never use non-semantic HTML** when semantic elements exist (use `<button>` not `<div onClick>`)
 - **Never use `innerHTML` or `dangerouslySetInnerHTML`** without sanitization
 - **Never create multi-file components** - each component must be a single `.tsx` file
+- **Never forget to spread `style` on the root element** - Framer passes layout sizing via the `style` prop
+- **Never apply font properties individually** - always spread: `...props.font`, NOT `fontFamily: props.font.fontFamily`
+- **Never use `fetch` without canvas guards** - canvas re-renders cause infinite request loops
+- **Never use `ResizeObserver`/`IntersectionObserver` without canvas guards** - they fire excessively during canvas interactions
+- **Never import separate CSS files** - Framer doesn't support `.css` imports; use inline styles or `<style>` injection
+- **Never return a non-function from `useEffect`** - returning a number/value crashes; always wrap in braces
 
 ### ALWAYS Do
 - **Always export a default function component** - this is what Framer expects
 - **Always call `addPropertyControls`** on the exported component
+- **Always spread the `style` prop on the root element** - `<div style={{ ...containerStyle, ...props.style }}>`
 - **Always provide TypeScript types** for props
 - **Always add `displayName`** to components for Framer panel clarity
 - **Always include a header comment** with component name, description, and version
@@ -47,6 +54,9 @@ This is a **Framer code component library** - a storage repo of reusable `.tsx` 
 - **Always add ARIA attributes** for accessibility
 - **Always use logical CSS properties** for RTL support (`margin-inline-start` not `margin-left`)
 - **Always test in both canvas and preview modes**
+- **Always add layout annotations** via JSDoc: `@framerSupportedLayoutWidth`, `@framerSupportedLayoutHeight`
+- **Always guard browser APIs inside `useEffect`** - `window`, `document`, `navigator` may not exist during SSR
+- **Always spread font props** with `...props.font` not individual properties
 
 ---
 
@@ -263,6 +273,36 @@ boxShadow: {
     type: ControlType.BoxShadow,
     title: "Shadow",
 }
+
+// PADDING - padding control (replaces deprecated FusedNumber)
+padding: {
+    type: ControlType.Padding,
+    title: "Padding",
+}
+
+// BORDER RADIUS - border radius control
+radius: {
+    type: ControlType.BorderRadius,
+    title: "Radius",
+}
+
+// BORDER - border style control
+border: {
+    type: ControlType.Border,
+    title: "Border",
+}
+
+// DATE - date picker
+date: {
+    type: ControlType.Date,
+    title: "Date",
+}
+
+// RICH TEXT - formatted text editor
+richText: {
+    type: ControlType.RichText,
+    title: "Content",
+}
 ```
 
 ### Conditional Property Visibility
@@ -342,12 +382,40 @@ Use JSDoc annotations to tell Framer how your component handles sizing:
 /**
  * @framerSupportedLayoutWidth any
  * @framerSupportedLayoutHeight any
+ * @framerIntrinsicWidth 320
+ * @framerIntrinsicHeight 200
  */
 export default function Component(props) { ... }
-
-// Options: "any" (flexible), "fixed" (fixed size only)
-// @framerSupportedLayoutWidth any-prefer-fixed  -- prefers fixed but allows flexible
 ```
+
+**Layout options:**
+| Value | Behavior |
+|---|---|
+| `auto` | Content-driven sizing |
+| `fixed` | Fills container (fixed size only) |
+| `any` | User can toggle between auto and fixed |
+| `any-prefer-fixed` | Defaults to fixed, allows flexible |
+
+**Intrinsic size:** `@framerIntrinsicWidth` / `@framerIntrinsicHeight` set the default size when dropped on canvas.
+
+**Prevent unlinking:** `@framerDisableUnlink` prevents users from editing the component's internal structure.
+
+### The `style` Prop (CRITICAL)
+
+Framer passes a `style` prop to control the component's position and size. **You must spread it on the root element:**
+
+```tsx
+export default function Component(props: Props) {
+    const { style, ...rest } = props
+    return (
+        <div style={{ ...containerStyle, ...style }}>
+            {/* content */}
+        </div>
+    )
+}
+```
+
+Without spreading `style`, Framer cannot control the component's layout.
 
 ---
 
@@ -485,6 +553,49 @@ function safeGetItem(key: string): string | null {
     }
 }
 ```
+
+---
+
+## Shared State Across Components
+
+Use Framer's `createStore` for sharing state between components on the same page:
+
+```tsx
+import { createStore } from "https://framer.com/m/framer/store.js@^0.3.0"
+
+const useStore = createStore({ count: 0, isOpen: false })
+
+export default function Counter(props: Props) {
+    const [store, setStore] = useStore()
+    return (
+        <div style={props.style} onClick={() => setStore({ count: store.count + 1 })}>
+            {store.count}
+        </div>
+    )
+}
+```
+
+## Advanced CSS (Pseudo-elements, Media Queries)
+
+For CSS features not possible with inline styles, inject a `<style>` tag:
+
+```tsx
+export default function Component(props: Props) {
+    const css = `
+        .my-component:hover { background: rgba(0,0,0,0.1); }
+        .my-component::before { content: ""; position: absolute; }
+        @media (max-width: 768px) { .my-component { flex-direction: column; } }
+    `
+    return (
+        <div style={props.style}>
+            <style>{css}</style>
+            <div className="my-component">Content</div>
+        </div>
+    )
+}
+```
+
+For SSR-safe style injection, use `withCSS` from the `"framer"` package (moves styles to `<head>`).
 
 ---
 
