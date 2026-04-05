@@ -118,6 +118,7 @@ export default function CircularFlow(props: CircularFlowProps) {
 
 	const arrowSize = useMemo(() => strokeWidth * 4, [strokeWidth])
 
+	// Animation progress calculations
 	const circleProgress = useMemo(
 		() => Math.min(progress / ANIMATION_TIMINGS.CIRCLE_END, 1),
 		[progress]

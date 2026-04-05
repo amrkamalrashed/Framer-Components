@@ -66,18 +66,19 @@ export default function WordWheel({
     const [inView, setInView] = useState(false)
     const isAnimatingRef = useRef(false)
 
+    // Resolve font values with variant support
     const fontFamily =
         (font && typeof font === "object" && font.fontFamily) || "sans-serif"
     const baseFontSize =
         font && typeof font === "object" && typeof font.fontSize === "number"
             ? font.fontSize
             : 28
-    
+
     const variant = font && typeof font === "object" && font.variant ? font.variant : "Light"
     const resolvedVariant = variantToWeight[variant] || { fontWeight: 300, fontStyle: "normal" }
     const baseFontWeight = resolvedVariant.fontWeight
     const fontStyle = resolvedVariant.fontStyle
-    
+
     const lineHeight =
         font && typeof font === "object" && font.lineHeight != null
             ? font.lineHeight
@@ -87,11 +88,12 @@ export default function WordWheel({
             ? font.letterSpacing
             : "0em"
 
+    // Memoize derived values
     const focusFontSize = useMemo(
         () => Math.round(baseFontSize * focusSizeMultiplier),
         [baseFontSize, focusSizeMultiplier]
     )
-    
+
     const focusFontWeight = useMemo(
         () => Math.min(900, baseFontWeight + focusWeightBump),
         [baseFontWeight, focusWeightBump]
@@ -114,17 +116,18 @@ export default function WordWheel({
         () => Math.max(parseLH(lineHeight, focusFontSize) + gap, 40),
         [lineHeight, focusFontSize, gap]
     )
-    
+
     const halfVisible = useMemo(
         () => Math.floor(visibleCount / 2),
         [visibleCount]
     )
-    
+
     const maskCSS = useMemo(() => {
         const t = Math.max(0, Math.min(edgeFade, 45))
         return `linear-gradient(to bottom, transparent 0%, black ${t}%, black ${100 - t}%, transparent 100%)`
     }, [edgeFade])
 
+    // IntersectionObserver — only animate when in viewport
     useEffect(() => {
         if (isStatic || !containerRef.current) return
         const el = containerRef.current
@@ -136,19 +139,22 @@ export default function WordWheel({
         return () => observer.disconnect()
     }, [isStatic])
 
+    // Spring progress with reactive config
     const springProgress = useSpring(0, { stiffness, damping, mass: 1 })
-    
+
+    // Update spring config when props change
     useEffect(() => {
         const currentConfig = springProgress.get()
         springProgress.set(currentConfig)
     }, [stiffness, damping, springProgress])
-    
+
+    // Cleanup spring on unmount
     useEffect(() => {
         return () => {
             springProgress.stop()
         }
     }, [springProgress])
-    
+
     const stepRef = useRef(0)
 
     const tick = useCallback(() => {
@@ -157,6 +163,7 @@ export default function WordWheel({
         springProgress.set(stepRef.current)
     }, [count, springProgress])
 
+    // Timer — only runs when in view
     useEffect(() => {
         if (isStatic || count === 0 || !inView) return
         const id = setInterval(tick, interval)
@@ -182,18 +189,19 @@ export default function WordWheel({
         WebkitMaskImage: maskCSS,
     }
 
+    // Static canvas - show focused word based on current time
     if (isStatic) {
         const staticFocusIndex = Math.floor(Date.now() / interval) % count
-        
+
         return (
             <div style={containerStyle}>
                 {words.map((word, i) => {
                     const relativePos = (i - staticFocusIndex + count) % count
                     const adjustedPos = relativePos > count / 2 ? relativePos - count : relativePos
                     const absPos = Math.abs(adjustedPos)
-                    
+
                     if (absPos > halfVisible) return null
-                    
+
                     return (
                         <div
                             key={i}
@@ -267,6 +275,7 @@ export default function WordWheel({
     )
 }
 
+// Shortest-path wrap with safe modulo
 function wrapDiff(index: number, progress: number, count: number): number {
     const raw = index - (((progress % count) + count) % count)
     if (raw > count / 2) return raw - count
@@ -275,19 +284,37 @@ function wrapDiff(index: number, progress: number, count: number): number {
 }
 
 function WordItem({
-    index, word, count, springProgress, slotH, halfVisible, direction,
-    fontFamily, baseFontSize, focusFontSize, baseFontWeight, focusFontWeight,
-    fontStyle, lineHeight, letterSpacing, color, focusColor, nearOpacity, farOpacity,
+    index,
+    word,
+    count,
+    springProgress,
+    slotH,
+    halfVisible,
+    direction,
+    fontFamily,
+    baseFontSize,
+    focusFontSize,
+    baseFontWeight,
+    focusFontWeight,
+    fontStyle,
+    lineHeight,
+    letterSpacing,
+    color,
+    focusColor,
+    nearOpacity,
+    farOpacity,
 }: WordItemProps) {
     const sign = direction === "up" ? 1 : -1
 
-    const distance = useTransform(springProgress, (p: number) => 
+    // Calculate distance once and derive all transforms from it
+    const distance = useTransform(springProgress, (p: number) =>
         wrapDiff(index, p, count)
     )
-    
+
     const absDistance = useTransform(distance, (d: number) => Math.abs(d))
+
     const y = useTransform(distance, (d: number) => d * slotH * sign)
-    
+
     const opacity = useTransform(absDistance, (abs: number) => {
         if (abs > halfVisible + 0.5) return 0
         if (abs < 0.3) return 1
@@ -295,17 +322,17 @@ function WordItem({
         if (abs < 2.3) return farOpacity
         return 0
     })
-    
+
     const fontSize = useTransform(absDistance, (abs: number) => {
         const t = Math.max(0, 1 - abs)
         return baseFontSize + (focusFontSize - baseFontSize) * t
     })
-    
+
     const fontWeight = useTransform(absDistance, (abs: number) => {
         const t = Math.max(0, 1 - abs)
         return Math.round(baseFontWeight + (focusFontWeight - baseFontWeight) * t)
     })
-    
+
     const textColor = useTransform(absDistance, (abs: number) => {
         return abs < 0.3 ? focusColor : color
     })
@@ -383,8 +410,14 @@ addPropertyControls(WordWheel, {
         title: "Words",
         control: { type: ControlType.String },
         defaultValue: [
-            "Verslaving", "Persoonlijkheid", "Klinische zorg", "Suïcidaliteit",
-            "Eetstoornissen", "Psychoses", "Ernstige OCD", "Crisissituaties",
+            "Verslaving",
+            "Persoonlijkheid",
+            "Klinische zorg",
+            "Suïcidaliteit",
+            "Eetstoornissen",
+            "Psychoses",
+            "Ernstige OCD",
+            "Crisissituaties",
         ],
     },
     font: {
@@ -392,20 +425,125 @@ addPropertyControls(WordWheel, {
         title: "Font",
         controls: "extended",
         defaultFontType: "sans-serif",
-        defaultValue: { fontSize: 28, variant: "Light", lineHeight: "1.4", letterSpacing: "0em" },
+        defaultValue: {
+            fontSize: 28,
+            variant: "Light",
+            lineHeight: "1.4",
+            letterSpacing: "0em",
+        },
     },
-    color: { type: ControlType.Color, title: "Color", defaultValue: "#1a1a1a" },
-    focusColor: { type: ControlType.Color, title: "Focus Color", defaultValue: "#1a1a1a" },
-    focusSizeMultiplier: { type: ControlType.Number, title: "Focus Size ×", defaultValue: 1.4, min: 1, max: 3, step: 0.1 },
-    focusWeightBump: { type: ControlType.Number, title: "Focus Weight +", defaultValue: 200, min: 0, max: 600, step: 100, displayStepper: true },
-    nearOpacity: { type: ControlType.Number, title: "Near Opacity", defaultValue: 0.4, min: 0, max: 1, step: 0.05 },
-    farOpacity: { type: ControlType.Number, title: "Far Opacity", defaultValue: 0.15, min: 0, max: 1, step: 0.05 },
-    gap: { type: ControlType.Number, title: "Gap", defaultValue: 16, min: 0, max: 80, step: 2, unit: "px", displayStepper: true },
-    visibleCount: { type: ControlType.Number, title: "Visible Words", defaultValue: 5, min: 3, max: 9, step: 2, displayStepper: true },
-    edgeFade: { type: ControlType.Number, title: "Edge Fade", defaultValue: 20, min: 0, max: 45, step: 5, unit: "%" },
-    interval: { type: ControlType.Number, title: "Interval", defaultValue: 2500, min: 500, max: 10000, step: 100, unit: "ms", displayStepper: true },
-    stiffness: { type: ControlType.Number, title: "Stiffness", defaultValue: 60, min: 10, max: 300, step: 10, displayStepper: true },
-    damping: { type: ControlType.Number, title: "Damping", defaultValue: 18, min: 5, max: 50, step: 1, displayStepper: true },
-    direction: { type: ControlType.Enum, title: "Direction", options: ["up", "down"], optionTitles: ["Up", "Down"], defaultValue: "up", displaySegmentedControl: true },
-    pauseOnHover: { type: ControlType.Boolean, title: "Pause on Hover", defaultValue: true, enabledTitle: "Yes", disabledTitle: "No" },
+    color: {
+        type: ControlType.Color,
+        title: "Color",
+        defaultValue: "#1a1a1a",
+    },
+    focusColor: {
+        type: ControlType.Color,
+        title: "Focus Color",
+        defaultValue: "#1a1a1a",
+    },
+    focusSizeMultiplier: {
+        type: ControlType.Number,
+        title: "Focus Size ×",
+        defaultValue: 1.4,
+        min: 1,
+        max: 3,
+        step: 0.1,
+    },
+    focusWeightBump: {
+        type: ControlType.Number,
+        title: "Focus Weight +",
+        defaultValue: 200,
+        min: 0,
+        max: 600,
+        step: 100,
+        displayStepper: true,
+    },
+    nearOpacity: {
+        type: ControlType.Number,
+        title: "Near Opacity",
+        defaultValue: 0.4,
+        min: 0,
+        max: 1,
+        step: 0.05,
+    },
+    farOpacity: {
+        type: ControlType.Number,
+        title: "Far Opacity",
+        defaultValue: 0.15,
+        min: 0,
+        max: 1,
+        step: 0.05,
+    },
+    gap: {
+        type: ControlType.Number,
+        title: "Gap",
+        defaultValue: 16,
+        min: 0,
+        max: 80,
+        step: 2,
+        unit: "px",
+        displayStepper: true,
+    },
+    visibleCount: {
+        type: ControlType.Number,
+        title: "Visible Words",
+        defaultValue: 5,
+        min: 3,
+        max: 9,
+        step: 2,
+        displayStepper: true,
+    },
+    edgeFade: {
+        type: ControlType.Number,
+        title: "Edge Fade",
+        defaultValue: 20,
+        min: 0,
+        max: 45,
+        step: 5,
+        unit: "%",
+    },
+    interval: {
+        type: ControlType.Number,
+        title: "Interval",
+        defaultValue: 2500,
+        min: 500,
+        max: 10000,
+        step: 100,
+        unit: "ms",
+        displayStepper: true,
+    },
+    stiffness: {
+        type: ControlType.Number,
+        title: "Stiffness",
+        defaultValue: 60,
+        min: 10,
+        max: 300,
+        step: 10,
+        displayStepper: true,
+    },
+    damping: {
+        type: ControlType.Number,
+        title: "Damping",
+        defaultValue: 18,
+        min: 5,
+        max: 50,
+        step: 1,
+        displayStepper: true,
+    },
+    direction: {
+        type: ControlType.Enum,
+        title: "Direction",
+        options: ["up", "down"],
+        optionTitles: ["Up", "Down"],
+        defaultValue: "up",
+        displaySegmentedControl: true,
+    },
+    pauseOnHover: {
+        type: ControlType.Boolean,
+        title: "Pause on Hover",
+        defaultValue: true,
+        enabledTitle: "Yes",
+        disabledTitle: "No",
+    },
 })
