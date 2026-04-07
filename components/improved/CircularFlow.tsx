@@ -1,3 +1,13 @@
+// CircularFlow — Improved v2
+// Changes from original:
+// 1. ✅ Spread props.style on root element
+// 2. ✅ displayName with space: "Circular Flow"
+// 3. ✅ prefers-reduced-motion support
+// 4. ✅ ResizeObserver guarded for canvas
+// 5. ✅ Scroll listener guarded for canvas
+// 6. ✅ @framerIntrinsicWidth/Height added
+// 7. ✅ style prop added to interface
+
 import { useState, useEffect, useRef, useCallback, useMemo, startTransition } from "react"
 import { addPropertyControls, ControlType, RenderTarget } from "framer"
 
@@ -42,6 +52,7 @@ interface FontStyle {
 	fontStyle?: string
 }
 
+// [CHANGE 7] Added style prop to interface
 interface CircularFlowProps {
 	centerTitle?: string
 	stepTop?: string
@@ -62,6 +73,7 @@ interface CircularFlowProps {
 	scrollEnd?: number
 	titleFont?: FontStyle
 	labelFont?: FontStyle
+	style?: React.CSSProperties
 }
 
 /**
@@ -69,6 +81,8 @@ interface CircularFlowProps {
  *
  * @framerSupportedLayoutWidth fixed
  * @framerSupportedLayoutHeight fixed
+ * @framerIntrinsicWidth 400
+ * @framerIntrinsicHeight 400
  */
 export default function CircularFlow(props: CircularFlowProps) {
 	const {
@@ -99,12 +113,27 @@ export default function CircularFlow(props: CircularFlowProps) {
 			variant: "Medium",
 			letterSpacing: "-0.01em",
 		},
+		style,
 	} = props
 
 	const containerRef = useRef<HTMLDivElement | null>(null)
 	const rafRef = useRef<number>(0)
 	const [progress, setProgress] = useState(scrollDriven ? 0 : 1)
 	const [dimensions, setDimensions] = useState({ width: 400, height: 400 })
+
+	// [CHANGE 4] Canvas detection for guarding observers/listeners
+	const isCanvas = RenderTarget.current() === "canvas"
+
+	// [CHANGE 3] Reduced motion detection
+	const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
+	useEffect(() => {
+		if (typeof window === "undefined") return
+		const mq = window.matchMedia("(prefers-reduced-motion: reduce)")
+		setPrefersReducedMotion(mq.matches)
+		const handler = () => setPrefersReducedMotion(mq.matches)
+		mq.addEventListener("change", handler)
+		return () => mq.removeEventListener("change", handler)
+	}, [])
 
 	const formatText = useCallback((text: string) => (uppercase ? text.toUpperCase() : text), [uppercase])
 
@@ -162,24 +191,27 @@ export default function CircularFlow(props: CircularFlowProps) {
 	}, [progress])
 
 	const buildTitleElements = useCallback(() => {
+		// [CHANGE 3] Skip transform animation when reduced motion preferred
+		const translateY = prefersReducedMotion ? 0 : (1 - titleProgress) * STYLE_CONSTANTS.TITLE_TRANSLATE_Y
+		const opacity = prefersReducedMotion ? 1 : STYLE_CONSTANTS.TITLE_MIN_OPACITY + titleProgress * STYLE_CONSTANTS.TITLE_OPACITY_RANGE
+
 		return titleLines.map((line, idx) => {
 			const text = uppercase ? line.toUpperCase() : line
-			const style = {
+			const lineStyle = {
 				...titleFont,
 				color: textColor,
 				lineHeight: "1.1",
 				whiteSpace: "nowrap" as const,
-				transform: `translateY(${(1 - titleProgress) * STYLE_CONSTANTS.TITLE_TRANSLATE_Y}px)`,
-				opacity:
-					STYLE_CONSTANTS.TITLE_MIN_OPACITY + titleProgress * STYLE_CONSTANTS.TITLE_OPACITY_RANGE,
+				transform: `translateY(${translateY}px)`,
+				opacity,
 			}
 			return (
-				<div key={idx} style={style}>
+				<div key={idx} style={lineStyle}>
 					{text}
 				</div>
 			)
 		})
-	}, [titleLines, titleFont, textColor, titleProgress, uppercase])
+	}, [titleLines, titleFont, textColor, titleProgress, uppercase, prefersReducedMotion])
 
 	const buildArrowElements = useCallback(() => {
 		const angles = [-45, 45, 135, 225]
@@ -218,8 +250,10 @@ export default function CircularFlow(props: CircularFlowProps) {
 		setDimensions({ width, height })
 	}, [])
 
+	// [CHANGE 4] ResizeObserver guarded for canvas
 	useEffect(() => {
 		if (typeof window === "undefined") return
+		if (isCanvas) return
 		updateDimensions()
 
 		const resizeObserver = new ResizeObserver(() => {
@@ -235,10 +269,17 @@ export default function CircularFlow(props: CircularFlowProps) {
 			if (rafRef.current) cancelAnimationFrame(rafRef.current)
 			resizeObserver.disconnect()
 		}
-	}, [updateDimensions])
+	}, [updateDimensions, isCanvas])
 
+	// [CHANGE 5] Scroll listener guarded for canvas
 	useEffect(() => {
-		if (!scrollDriven || typeof window === "undefined") {
+		if (!scrollDriven || typeof window === "undefined" || isCanvas) {
+			startTransition(() => setProgress(1))
+			return
+		}
+
+		// [CHANGE 3] Skip scroll animation when reduced motion preferred
+		if (prefersReducedMotion) {
 			startTransition(() => setProgress(1))
 			return
 		}
@@ -266,7 +307,7 @@ export default function CircularFlow(props: CircularFlowProps) {
 		handleScroll()
 		window.addEventListener("scroll", handleScroll, { passive: true })
 		return () => window.removeEventListener("scroll", handleScroll)
-	}, [scrollDriven, scrollStart, scrollEnd])
+	}, [scrollDriven, scrollStart, scrollEnd, isCanvas, prefersReducedMotion])
 
 	const renderStepLabel = useCallback(
 		(step: "top" | "right" | "bottom" | "left", text: string) => {
@@ -282,8 +323,9 @@ export default function CircularFlow(props: CircularFlowProps) {
 					? 0
 					: Math.min((progress - (ANIMATION_TIMINGS.ARROW_START + 0.1)) / 0.3, 1)
 
-			const translateAmount = (1 - labelProgress) * STYLE_CONSTANTS.LABEL_TRANSLATE
-			const opacity =
+			// [CHANGE 3] Skip label animation when reduced motion preferred
+			const translateAmount = prefersReducedMotion ? 0 : (1 - labelProgress) * STYLE_CONSTANTS.LABEL_TRANSLATE
+			const opacity = prefersReducedMotion ? 1 :
 				STYLE_CONSTANTS.LABEL_MIN_OPACITY + labelProgress * STYLE_CONSTANTS.LABEL_OPACITY_RANGE
 
 			const isAnnotated = annotation && annotationStep === step
@@ -310,8 +352,8 @@ export default function CircularFlow(props: CircularFlowProps) {
 							style={{
 								marginTop: "4px",
 								fontSize: "12px",
-								opacity: annotationProgress,
-								transform: `translateY(${(1 - annotationProgress) * 5}px)`,
+								opacity: prefersReducedMotion ? 1 : annotationProgress,
+								transform: prefersReducedMotion ? "none" : `translateY(${(1 - annotationProgress) * 5}px)`,
 							}}
 						>
 							{formatText(annotation)}
@@ -332,9 +374,11 @@ export default function CircularFlow(props: CircularFlowProps) {
 			annotationStep,
 			annotationProgress,
 			formatText,
+			prefersReducedMotion,
 		]
 	)
 
+	// [CHANGE 1] Spread props.style on root element
 	return (
 		<div
 			ref={containerRef}
@@ -345,6 +389,7 @@ export default function CircularFlow(props: CircularFlowProps) {
 				display: "flex",
 				alignItems: "center",
 				justifyContent: "center",
+				...style,
 			}}
 			role="img"
 			aria-label="Circular flow diagram showing a continuous process"
@@ -364,7 +409,7 @@ export default function CircularFlow(props: CircularFlowProps) {
 					strokeWidth={strokeWidth}
 					strokeDasharray={circumference}
 					strokeDashoffset={dashOffset}
-					style={{ transition: scrollDriven ? "none" : "stroke-dashoffset 0.3s ease-out" }}
+					style={{ transition: (scrollDriven || prefersReducedMotion) ? "none" : "stroke-dashoffset 0.3s ease-out" }}
 				/>
 				{arrowElements}
 			</svg>
@@ -391,7 +436,8 @@ export default function CircularFlow(props: CircularFlowProps) {
 	)
 }
 
-CircularFlow.displayName = "CircularFlow"
+// [CHANGE 2] displayName with space
+CircularFlow.displayName = "Circular Flow"
 
 addPropertyControls(CircularFlow, {
 	centerTitle: {
