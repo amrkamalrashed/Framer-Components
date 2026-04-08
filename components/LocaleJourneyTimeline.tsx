@@ -87,6 +87,14 @@ function isRTLLocale(code: string): boolean {
     return RTL_LANGS.has(code.split("-")[0].toLowerCase())
 }
 
+/* ━━━ Arabic-Indic numeral converter ━━━ */
+
+const ARABIC_DIGITS = ["\u0660", "\u0661", "\u0662", "\u0663", "\u0664", "\u0665", "\u0666", "\u0667", "\u0668", "\u0669"]
+
+function toArabicNumerals(str: string): string {
+    return str.replace(/[0-9]/g, (d) => ARABIC_DIGITS[parseInt(d, 10)])
+}
+
 /* ━━━ transition constants ━━━ */
 
 const TRANS = "0.35s"
@@ -163,57 +171,57 @@ interface Props {
 const DEFAULT_MILESTONES: MilestoneItem[] = [
     {
         year: "2018",
-        title: "The Foundation",
+        title: "\u0627\u0644\u062A\u0623\u0633\u064A\u0633",
         description:
-            "Started as a local roastery, earning the trust of the coffee community in the region.",
+            "\u0628\u062F\u0623\u062A \u0645\u062D\u0645\u0635\u0629 \u0633\u0648\u064A\u0644 \u0643\u0645\u062D\u0645\u0635\u0629 \u0645\u062D\u0644\u064A\u0629 \u0641\u064A \u0627\u0644\u062F\u0645\u0627\u0645\u060C \u0648\u0627\u0643\u062A\u0633\u0628\u062A \u062B\u0642\u0629 \u0645\u062C\u062A\u0645\u0639 \u0627\u0644\u0642\u0647\u0648\u0629 \u0641\u064A \u0627\u0644\u0645\u0646\u0637\u0642\u0629 \u0627\u0644\u0634\u0631\u0642\u064A\u0629.",
     },
     {
         year: "2019",
-        title: "Building the Base",
+        title: "\u0628\u0646\u0627\u0621 \u0627\u0644\u0623\u0633\u0627\u0633",
         description:
-            "Expanding the client network, developing roast profiles, and establishing a roasting identity.",
+            "\u062A\u0648\u0633\u064A\u0639 \u0634\u0628\u0643\u0629 \u0627\u0644\u0639\u0645\u0644\u0627\u0621\u060C \u062A\u0637\u0648\u064A\u0631 \u0627\u0644\u0628\u0631\u0648\u0641\u0627\u064A\u0644\u0627\u062A\u060C \u0648\u062A\u0631\u0633\u064A\u062E \u0647\u0648\u064A\u0629 \u0627\u0644\u062A\u062D\u0645\u064A\u0635.",
     },
     {
         year: "2020",
-        title: "The Shift",
+        title: "\u0627\u0644\u062A\u062D\u0648\u0644",
         description:
-            "Full focus on roasting and launching the online store in response to market changes.",
+            "\u0627\u0644\u062A\u0631\u0643\u064A\u0632 \u0627\u0644\u0643\u0627\u0645\u0644 \u0639\u0644\u0649 \u0627\u0644\u062A\u062D\u0645\u064A\u0635 \u0648\u0627\u0637\u0644\u0627\u0642 \u0627\u0644\u0645\u062A\u062C\u0631 \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0627\u0633\u062A\u062C\u0627\u0628\u0629 \u0644\u062A\u063A\u064A\u0631 \u0627\u0644\u0633\u0648\u0642.",
     },
     {
         year: "2021",
-        title: "Growth & Continuity",
+        title: "\u0627\u0644\u0627\u0633\u062A\u0645\u0631\u0627\u0631 \u0648\u0627\u0644\u0646\u0645\u0648",
         description:
-            "Expanding partnerships and retail points while maintaining consistency and quality.",
+            "\u062A\u0648\u0633\u064A\u0639 \u0627\u0644\u0634\u0631\u0627\u0643\u0627\u062A \u0648\u0632\u064A\u0627\u062F\u0629 \u0646\u0642\u0627\u0637 \u0627\u0644\u0628\u064A\u0639 \u0645\u0639 \u0627\u0644\u062D\u0641\u0627\u0638 \u0639\u0644\u0649 \u0627\u0644\u062B\u0628\u0627\u062A \u0648\u0627\u0644\u062C\u0648\u062F\u0629.",
     },
     {
         year: "2022",
-        title: "National Reach",
+        title: "\u0627\u0644\u0627\u0646\u062A\u0634\u0627\u0631 \u0627\u0644\u0648\u0637\u0646\u064A",
         description:
-            "Rising demand across the country and scaling production capacity.",
+            "\u0627\u0631\u062A\u0641\u0627\u0639 \u0627\u0644\u0637\u0644\u0628 \u0639\u0644\u0649 \u0645\u0633\u062A\u0648\u0649 \u0627\u0644\u0645\u0645\u0644\u0643\u0629\u060C \u0648\u062A\u0637\u0648\u064A\u0631 \u0627\u0644\u0642\u062F\u0631\u0629 \u0627\u0644\u0625\u0646\u062A\u0627\u062C\u064A\u0629.",
     },
     {
         year: "2023",
-        title: "The Direct Experience",
+        title: "\u0627\u0644\u062A\u062C\u0631\u0628\u0629 \u0627\u0644\u0645\u0628\u0627\u0634\u0631\u0629",
         description:
-            "Opening a flagship cafe, connecting the roastery with the daily coffee experience.",
+            "\u0627\u0641\u062A\u062A\u0627\u062D \u0645\u0642\u0647\u0649 \u0633\u0648\u064A\u0644 \u0641\u064A \u0627\u0644\u062E\u0628\u0631. \u0631\u0628\u0637 \u0627\u0644\u0645\u062D\u0645\u0635\u0629 \u0628\u0627\u0644\u062A\u062C\u0631\u0628\u0629 \u0627\u0644\u064A\u0648\u0645\u064A\u0629.",
     },
     {
         year: "2024",
-        title: "Regional Expansion",
+        title: "\u0627\u0644\u062A\u0648\u0633\u0639 \u0627\u0644\u0625\u0642\u0644\u064A\u0645\u064A",
         description:
-            "Reaching new markets, growing the team and operations.",
+            "\u0627\u0644\u0648\u0635\u0648\u0644 \u0625\u0644\u0649 \u0623\u0633\u0648\u0627\u0642 \u0627\u0644\u062E\u0644\u064A\u062C\u060C \u0648\u062A\u0643\u0628\u064A\u0631 \u0627\u0644\u0641\u0631\u064A\u0642 \u0648\u0627\u0644\u0639\u0645\u0644\u064A\u0627\u062A.",
     },
     {
         year: "2025",
-        title: "A Step Forward",
+        title: "\u062E\u0637\u0648\u0629 \u0644\u0644\u0623\u0645\u0627\u0645",
         description:
-            "Moving to an advanced facility equipped with the latest roasting technology.",
+            "\u0627\u0644\u0627\u0646\u062A\u0642\u0627\u0644 \u0625\u0644\u0649 \u0645\u0635\u0646\u0639 \u0645\u062A\u0637\u0648\u0631 \u0641\u064A \u0627\u0644\u0645\u062F\u064A\u0646\u0629 \u0627\u0644\u0635\u0646\u0627\u0639\u064A\u0629 \u0627\u0644\u062B\u0627\u0646\u064A\u0629 \u0628\u0627\u0644\u062F\u0645\u0627\u0645. \u0645\u062C\u0647\u0632 \u0628\u0623\u062D\u062F\u062B \u062A\u0642\u0646\u064A\u0627\u062A \u0627\u0644\u062A\u062D\u0645\u064A\u0635.",
     },
     {
         year: "2026",
-        title: "The Next Chapter",
+        title: "\u0627\u0644\u0645\u0631\u062D\u0644\u0629 \u0627\u0644\u0642\u0627\u062F\u0645\u0629",
         description:
-            "Continuing to grow while preserving our identity: precise roasting, transparent sourcing, and lasting impact.",
+            "\u0646\u0633\u062A\u0645\u0631 \u0641\u064A \u0627\u0644\u062A\u0648\u0633\u0639 \u0645\u0639 \u0627\u0644\u062D\u0641\u0627\u0638 \u0639\u0644\u0649 \u0627\u0644\u0647\u0648\u064A\u0629: \u062A\u062D\u0645\u064A\u0635 \u062F\u0642\u064A\u0642\u060C \u0645\u0635\u062F\u0631 \u0634\u0641\u0627\u0641\u060C \u0648\u0623\u062B\u0631 \u0645\u0633\u062A\u062F\u0627\u0645.",
     },
 ]
 
@@ -444,15 +452,10 @@ export default function LocaleJourneyTimeline({
 
     const initActive = !shouldAnimate
 
-    // Vertical offset to center marker with the year number
+    // Content top offset to align title with upper portion of year
     const yearSize =
         typeof yearF.fontSize === "number" ? yearF.fontSize : 72
-    const markerOffset = Math.max(
-        0,
-        Math.round(yearSize * 0.45 - markerSize * 0.5)
-    )
-    // Content top offset to align title with upper portion of year
-    const contentOffset = Math.max(0, Math.round(yearSize * 0.2))
+    const contentOffset = Math.max(0, Math.round(yearSize * 0.15))
 
     return (
         <div
@@ -501,7 +504,6 @@ export default function LocaleJourneyTimeline({
                                 alignItems: "center",
                                 width: markerSize,
                                 flexShrink: 0,
-                                paddingBlockStart: markerOffset,
                             }}
                         >
                             {/* Square marker — fills on activation */}
@@ -533,10 +535,11 @@ export default function LocaleJourneyTimeline({
                                         flex: 1,
                                         width: lineWidth,
                                         backgroundColor: lineColor,
+                                        borderRadius: lineWidth,
                                         position: "relative" as const,
                                         overflow: "hidden" as const,
                                         marginBlockStart: 8,
-                                        marginBlockEnd: 8,
+                                        marginBlockEnd: isLast ? 0 : 8,
                                         minHeight: 24,
                                     }}
                                 >
@@ -552,6 +555,7 @@ export default function LocaleJourneyTimeline({
                                             height: "100%",
                                             backgroundColor:
                                                 lineFilledColor,
+                                            borderRadius: lineWidth,
                                             transformOrigin: "top center",
                                             transform: initActive
                                                 ? "scaleY(1)"
@@ -591,7 +595,7 @@ export default function LocaleJourneyTimeline({
                                         "grayscale" as any,
                                 }}
                             >
-                                {year}
+                                {isRTL ? toArabicNumerals(year) : year}
                             </span>
                         </div>
 
