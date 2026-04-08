@@ -1,7 +1,7 @@
 // LocaleJourneyTimeline.tsx
-// Locale-aware year-by-year journey timeline with scroll-linked progress line
-// Automatically switches between RTL and LTR based on Framer locale
-// Version: 1.0.0
+// Locale-aware journey timeline matching SheVibes design
+// Arabic-Indic numerals, connected filling line, RTL/LTR auto-switch
+// Version: 2.0.0
 
 import {
     addPropertyControls,
@@ -78,13 +78,24 @@ function resolveFont(
     }
 }
 
-/* ━━━ RTL detection ━━━ */
+/* ━━━ RTL detection & Arabic numerals ━━━ */
 
 const RTL_LANGS = new Set(["ar", "he", "fa", "ur"])
 
 function isRTLLocale(code: string): boolean {
     if (!code) return false
     return RTL_LANGS.has(code.split("-")[0].toLowerCase())
+}
+
+function isArabicLocale(code: string): boolean {
+    if (!code) return false
+    return code.split("-")[0].toLowerCase() === "ar"
+}
+
+const ARABIC_DIGITS = ["\u0660", "\u0661", "\u0662", "\u0663", "\u0664", "\u0665", "\u0666", "\u0667", "\u0668", "\u0669"]
+
+function toArabicNumerals(str: string): string {
+    return str.replace(/[0-9]/g, (d) => ARABIC_DIGITS[parseInt(d)])
 }
 
 /* ━━━ transition constants ━━━ */
@@ -111,13 +122,14 @@ function applyState(
     i: number,
     active: boolean,
     fillColor: string,
+    inactiveColor: string,
     rtl: boolean
 ) {
     const m = els.markers[i]
     const y = els.years[i]
     const t = els.texts[i]
 
-    if (m) m.style.backgroundColor = active ? fillColor : "transparent"
+    if (m) m.style.backgroundColor = active ? fillColor : inactiveColor
     if (y) y.style.opacity = active ? "1" : "0.25"
     if (t) {
         t.style.opacity = active ? "1" : "0.3"
@@ -148,12 +160,12 @@ interface Props {
     lineFilledColor?: string
     lineWidth?: number
     markerSize?: number
-    markerRadius?: number
     markerBorderWidth?: number
     markerBorderColor?: string
     markerActiveColor?: string
+    markerInactiveColor?: string
     columnGap?: number
-    gap?: number
+    rowGap?: number
     animateOnScroll?: boolean
     triggerPoint?: number
 }
@@ -163,69 +175,61 @@ interface Props {
 const DEFAULT_MILESTONES: MilestoneItem[] = [
     {
         year: "2018",
-        title: "The Foundation",
-        description:
-            "Started as a local roastery, earning the trust of the coffee community in the region.",
+        title: "\u0627\u0644\u062A\u0623\u0633\u064A\u0633",
+        description: "\u0628\u062F\u0623\u062A \u0645\u062D\u0645\u0635\u0629 \u0633\u0648\u064A\u0644 \u0643\u0645\u062D\u0645\u0635\u0629 \u0645\u062D\u0644\u064A\u0629 \u0641\u064A \u0627\u0644\u062F\u0645\u0627\u0645\u060C \u0648\u0627\u0643\u062A\u0633\u0628\u062A \u062B\u0642\u0629 \u0645\u062C\u062A\u0645\u0639 \u0627\u0644\u0642\u0647\u0648\u0629 \u0641\u064A \u0627\u0644\u0645\u0646\u0637\u0642\u0629 \u0627\u0644\u0634\u0631\u0642\u064A\u0629.",
     },
     {
         year: "2019",
-        title: "Building the Base",
-        description:
-            "Expanding the client network, developing roast profiles, and establishing a roasting identity.",
+        title: "\u0628\u0646\u0627\u0621 \u0627\u0644\u0623\u0633\u0627\u0633",
+        description: "\u062A\u0648\u0633\u064A\u0639 \u0634\u0628\u0643\u0629 \u0627\u0644\u0639\u0645\u0644\u0627\u0621\u060C \u062A\u0637\u0648\u064A\u0631 \u0627\u0644\u0628\u0631\u0648\u0641\u0627\u064A\u0644\u0627\u062A\u060C \u0648\u062A\u0631\u0633\u064A\u062E \u0647\u0648\u064A\u0629 \u0627\u0644\u062A\u062D\u0645\u064A\u0635.",
     },
     {
         year: "2020",
-        title: "The Shift",
-        description:
-            "Full focus on roasting and launching the online store in response to market changes.",
+        title: "\u0627\u0644\u062A\u062D\u0648\u0644",
+        description: "\u0627\u0644\u062A\u0631\u0643\u064A\u0632 \u0627\u0644\u0643\u0627\u0645\u0644 \u0639\u0644\u0649 \u0627\u0644\u062A\u062D\u0645\u064A\u0635 \u0648\u0625\u0637\u0644\u0627\u0642 \u0627\u0644\u0645\u062A\u062C\u0631 \u0627\u0644\u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A \u0627\u0633\u062A\u062C\u0627\u0628\u0629 \u0644\u062A\u063A\u064A\u0651\u0631 \u0627\u0644\u0633\u0648\u0642.",
     },
     {
         year: "2021",
-        title: "Growth & Continuity",
-        description:
-            "Expanding partnerships and retail points while maintaining consistency and quality.",
+        title: "\u0627\u0644\u0627\u0633\u062A\u0645\u0631\u0627\u0631 \u0648\u0627\u0644\u0646\u0645\u0648",
+        description: "\u062A\u0648\u0633\u0651\u0639 \u0627\u0644\u0634\u0631\u0627\u0643\u0627\u062A \u0648\u0632\u064A\u0627\u062F\u0629 \u0646\u0642\u0627\u0637 \u0627\u0644\u0628\u064A\u0639 \u0645\u0639 \u0627\u0644\u062D\u0641\u0627\u0638 \u0639\u0644\u0649 \u0627\u0644\u062B\u0628\u0627\u062A \u0648\u0627\u0644\u062C\u0648\u062F\u0629.",
     },
     {
         year: "2022",
-        title: "National Reach",
-        description:
-            "Rising demand across the country and scaling production capacity.",
+        title: "\u0627\u0644\u0627\u0646\u062A\u0634\u0627\u0631 \u0627\u0644\u0648\u0637\u0646\u064A",
+        description: "\u0627\u0631\u062A\u0641\u0627\u0639 \u0627\u0644\u0637\u0644\u0628 \u0639\u0644\u0649 \u0645\u0633\u062A\u0648\u0649 \u0627\u0644\u0645\u0645\u0644\u0643\u0629\u060C \u0648\u062A\u0637\u0648\u064A\u0631 \u0627\u0644\u0642\u062F\u0631\u0629 \u0627\u0644\u0625\u0646\u062A\u0627\u062C\u064A\u0629.",
     },
     {
         year: "2023",
-        title: "The Direct Experience",
-        description:
-            "Opening a flagship cafe, connecting the roastery with the daily coffee experience.",
+        title: "\u0627\u0644\u062A\u062C\u0631\u0628\u0629 \u0627\u0644\u0645\u0628\u0627\u0634\u0631\u0629",
+        description: "\u0627\u0641\u062A\u062A\u0627\u062D \u0645\u0642\u0647\u0649 \u0633\u0648\u064A\u0644 \u0641\u064A \u0627\u0644\u062E\u0628\u0631\u060C \u0648\u0631\u0628\u0637 \u0627\u0644\u0645\u062D\u0645\u0635\u0629 \u0628\u0627\u0644\u062A\u062C\u0631\u0628\u0629 \u0627\u0644\u064A\u0648\u0645\u064A\u0629.",
     },
     {
         year: "2024",
-        title: "Regional Expansion",
-        description:
-            "Reaching new markets, growing the team and operations.",
+        title: "\u0627\u0644\u062A\u0648\u0633\u0639 \u0627\u0644\u0625\u0642\u0644\u064A\u0645\u064A",
+        description: "\u0627\u0644\u0648\u0635\u0648\u0644 \u0625\u0644\u0649 \u0623\u0633\u0648\u0627\u0642 \u0627\u0644\u062E\u0644\u064A\u062C\u060C \u0648\u062A\u0643\u0628\u064A\u0631 \u0627\u0644\u0641\u0631\u064A\u0642 \u0648\u0627\u0644\u0639\u0645\u0644\u064A\u0627\u062A.",
     },
     {
         year: "2025",
-        title: "A Step Forward",
-        description:
-            "Moving to an advanced facility equipped with the latest roasting technology.",
+        title: "\u062E\u0637\u0648\u0629 \u0644\u0644\u0623\u0645\u0627\u0645",
+        description: "\u0627\u0644\u0627\u0646\u062A\u0642\u0627\u0644 \u0625\u0644\u0649 \u0645\u0635\u0646\u0639 \u0645\u062A\u0637\u0648\u0631 \u0641\u064A \u0627\u0644\u0645\u062F\u064A\u0646\u0629 \u0627\u0644\u0635\u0646\u0627\u0639\u064A\u0629 \u0627\u0644\u062B\u0627\u0646\u064A\u0629 \u0628\u0627\u0644\u062F\u0645\u0627\u0645\u060C \u0645\u062C\u0647\u0632 \u0628\u0623\u062D\u062F\u062B \u062A\u0642\u0646\u064A\u0627\u062A \u0627\u0644\u062A\u062D\u0645\u064A\u0635.",
     },
     {
         year: "2026",
-        title: "The Next Chapter",
-        description:
-            "Continuing to grow while preserving our identity: precise roasting, transparent sourcing, and lasting impact.",
+        title: "\u0627\u0644\u0645\u0631\u062D\u0644\u0629 \u0627\u0644\u0642\u0627\u062F\u0645\u0629",
+        description: "\u0646\u0633\u062A\u0645\u0631 \u0641\u064A \u0627\u0644\u062A\u0648\u0633\u0639 \u0645\u0639 \u0627\u0644\u062D\u0641\u0627\u0638 \u0639\u0644\u0649 \u0627\u0644\u0647\u0648\u064A\u0629: \u062A\u062D\u0645\u064A\u0635 \u062F\u0642\u064A\u0642\u060C \u0645\u0635\u062F\u0631 \u0634\u0641\u0627\u0641\u060C \u0648\u0623\u062B\u0631 \u0645\u0633\u062A\u062F\u0627\u0645.",
     },
 ]
 
 /**
  * Locale Journey Timeline — Scroll-linked year-by-year journey.
- * Detects Framer locale and switches between RTL (Arabic) and LTR (English).
+ * Matches SheVibes YearCard design with integrated progress line.
+ * Auto-detects Framer locale: RTL + Arabic-Indic numerals for Arabic.
  * CSS transitions + direct DOM mutation — zero React re-renders during scroll.
  *
  * @framerSupportedLayoutWidth any
  * @framerSupportedLayoutHeight any
- * @framerIntrinsicWidth 700
- * @framerIntrinsicHeight 1200
+ * @framerIntrinsicWidth 820
+ * @framerIntrinsicHeight 1400
  */
 export default function LocaleJourneyTimeline({
     style,
@@ -236,16 +240,16 @@ export default function LocaleJourneyTimeline({
     yearColor = "#1A1A1A",
     titleColor = "#1A1A1A",
     bodyColor = "#666666",
-    lineColor = "#E0DDD5",
-    lineFilledColor = "#2A7D6E",
+    lineColor = "rgb(215, 212, 203)",
+    lineFilledColor = "rgb(15, 145, 79)",
     lineWidth = 2,
-    markerSize = 14,
-    markerRadius = 2,
-    markerBorderWidth = 2,
-    markerBorderColor = "#2A7D6E",
-    markerActiveColor = "#2A7D6E",
+    markerSize = 24,
+    markerBorderWidth = 1,
+    markerBorderColor = "rgb(15, 145, 79)",
+    markerActiveColor = "rgb(15, 145, 79)",
+    markerInactiveColor = "rgb(245, 245, 241)",
     columnGap = 20,
-    gap = 0,
+    rowGap = 48,
     animateOnScroll = true,
     triggerPoint = 0.7,
 }: Props) {
@@ -256,9 +260,10 @@ export default function LocaleJourneyTimeline({
             : false
     const shouldAnimate = animateOnScroll && !isStatic && !prefersReducedMotion
 
-    // Locale-aware direction
+    // Locale-aware direction & numeral system
     const localeCode = useLocaleCode()
     const isRTL = isRTLLocale(localeCode || "")
+    const isArabic = isArabicLocale(localeCode || "")
 
     // Mutable DOM refs — never triggers re-render
     const els = useRef<ElsStore>({
@@ -307,10 +312,10 @@ export default function LocaleJourneyTimeline({
         const prev = els.current.prevActive
         if (newActive !== prev) {
             for (let i = Math.max(0, prev + 1); i <= newActive; i++) {
-                applyState(els.current, i, true, markerActiveColor, isRTL)
+                applyState(els.current, i, true, markerActiveColor, markerInactiveColor, isRTL)
             }
             for (let i = prev; i > newActive && i >= 0; i--) {
-                applyState(els.current, i, false, markerActiveColor, isRTL)
+                applyState(els.current, i, false, markerActiveColor, markerInactiveColor, isRTL)
             }
             els.current.prevActive = newActive
         }
@@ -345,6 +350,7 @@ export default function LocaleJourneyTimeline({
         milestones.length,
         triggerPoint,
         markerActiveColor,
+        markerInactiveColor,
         isRTL,
     ])
 
@@ -358,6 +364,7 @@ export default function LocaleJourneyTimeline({
                     i,
                     true,
                     markerActiveColor,
+                    markerInactiveColor,
                     isRTL
                 )
                 const f = els.current.lineFills[i]
@@ -391,6 +398,7 @@ export default function LocaleJourneyTimeline({
         updateScroll,
         milestones.length,
         markerActiveColor,
+        markerInactiveColor,
         isRTL,
     ])
 
@@ -398,10 +406,10 @@ export default function LocaleJourneyTimeline({
     const yearF = useMemo(
         () =>
             resolveFont(yearFont, {
-                size: 72,
-                weight: 700,
-                lineHeight: "1em",
-                letterSpacing: "-0.02em",
+                size: 88,
+                weight: 400,
+                lineHeight: "1.1em",
+                letterSpacing: "0em",
             }),
         [yearFont]
     )
@@ -409,10 +417,10 @@ export default function LocaleJourneyTimeline({
     const titleF = useMemo(
         () =>
             resolveFont(titleFont, {
-                size: 20,
-                weight: 700,
-                lineHeight: "1.3em",
-                letterSpacing: "-0.01em",
+                size: 32,
+                weight: 400,
+                lineHeight: "1.2em",
+                letterSpacing: "0em",
             }),
         [titleFont]
     )
@@ -421,7 +429,7 @@ export default function LocaleJourneyTimeline({
         () =>
             resolveFont(bodyFont, {
                 size: 14,
-                weight: 400,
+                weight: 700,
                 lineHeight: "1.6em",
                 letterSpacing: "0em",
             }),
@@ -444,15 +452,10 @@ export default function LocaleJourneyTimeline({
 
     const initActive = !shouldAnimate
 
-    // Vertical offset to center marker with the year number
+    // Offset marker to align with upper portion of year text
     const yearSize =
-        typeof yearF.fontSize === "number" ? yearF.fontSize : 72
-    const markerOffset = Math.max(
-        0,
-        Math.round(yearSize * 0.45 - markerSize * 0.5)
-    )
-    // Content top offset to align title with upper portion of year
-    const contentOffset = Math.max(0, Math.round(yearSize * 0.2))
+        typeof yearF.fontSize === "number" ? yearF.fontSize : 88
+    const markerOffset = Math.max(0, Math.round(yearSize * 0.35 - markerSize * 0.5))
 
     return (
         <div
@@ -460,7 +463,7 @@ export default function LocaleJourneyTimeline({
                 width: "100%",
                 display: "flex",
                 flexDirection: "column",
-                gap: `${gap}px`,
+                gap: `${rowGap}px`,
                 position: "relative",
                 direction: isRTL ? "rtl" : "ltr",
                 ...style,
@@ -477,7 +480,9 @@ export default function LocaleJourneyTimeline({
                     : initActive
                 const title = ms?.title || `Milestone ${i + 1}`
                 const desc = ms?.description || ""
-                const year = ms?.year || ""
+                const rawYear = ms?.year || ""
+                // Auto-convert Western digits to Arabic-Indic in Arabic locale
+                const displayYear = isArabic ? toArabicNumerals(rawYear) : rawYear
 
                 return (
                     <div
@@ -486,14 +491,14 @@ export default function LocaleJourneyTimeline({
                             display: "flex",
                             flexDirection: "row",
                             alignItems: "stretch",
-                            columnGap,
+                            gap: `${columnGap}px`,
                             position: "relative",
                         }}
                         role="listitem"
-                        aria-label={`${year}: ${title}`}
+                        aria-label={`${displayYear}: ${title}`}
                         aria-current={isActive ? "step" : undefined}
                     >
-                        {/* Timeline column: square marker + connector line */}
+                        {/* Timeline column: marker + connected line */}
                         <div
                             style={{
                                 display: "flex",
@@ -512,13 +517,13 @@ export default function LocaleJourneyTimeline({
                                 style={{
                                     width: markerSize,
                                     height: markerSize,
-                                    borderRadius: markerRadius,
+                                    borderRadius: 0,
                                     borderWidth: markerBorderWidth,
                                     borderStyle: "solid",
                                     borderColor: markerBorderColor,
                                     backgroundColor: initActive
                                         ? markerActiveColor
-                                        : "transparent",
+                                        : markerInactiveColor,
                                     flexShrink: 0,
                                     boxSizing: "border-box" as const,
                                     transition: MARKER_TRANSITION,
@@ -526,7 +531,7 @@ export default function LocaleJourneyTimeline({
                                 aria-hidden="true"
                             />
 
-                            {/* Connector line — scaleY driven by scroll */}
+                            {/* Connected line — no gaps, scaleY driven by scroll */}
                             {!isLast && (
                                 <div
                                     style={{
@@ -535,8 +540,6 @@ export default function LocaleJourneyTimeline({
                                         backgroundColor: lineColor,
                                         position: "relative" as const,
                                         overflow: "hidden" as const,
-                                        marginBlockStart: 8,
-                                        marginBlockEnd: 8,
                                         minHeight: 24,
                                     }}
                                 >
@@ -576,6 +579,7 @@ export default function LocaleJourneyTimeline({
                         >
                             <span
                                 style={{
+                                    ...yearFont,
                                     fontFamily: yearF.fontFamily,
                                     fontSize: yearF.fontSize,
                                     fontWeight: yearF.fontWeight,
@@ -591,7 +595,7 @@ export default function LocaleJourneyTimeline({
                                         "grayscale" as any,
                                 }}
                             >
-                                {year}
+                                {displayYear}
                             </span>
                         </div>
 
@@ -604,9 +608,8 @@ export default function LocaleJourneyTimeline({
                                 flex: 1,
                                 display: "flex",
                                 flexDirection: "column" as const,
-                                gap: 6,
-                                paddingBlockEnd: isLast ? 0 : 48,
-                                paddingBlockStart: contentOffset,
+                                gap: 8,
+                                maxWidth: 560,
                                 opacity: initActive ? 1 : 0.3,
                                 transform: initActive
                                     ? "translateX(0)"
@@ -616,6 +619,7 @@ export default function LocaleJourneyTimeline({
                         >
                             <span
                                 style={{
+                                    ...titleFont,
                                     fontFamily: titleF.fontFamily,
                                     fontSize: titleF.fontSize,
                                     fontWeight: titleF.fontWeight,
@@ -633,6 +637,7 @@ export default function LocaleJourneyTimeline({
                             </span>
                             <span
                                 style={{
+                                    ...bodyFont,
                                     fontFamily: bodyF.fontFamily,
                                     fontSize: bodyF.fontSize,
                                     fontWeight: bodyF.fontWeight,
@@ -694,10 +699,9 @@ addPropertyControls(LocaleJourneyTimeline, {
         controls: "extended",
         defaultFontType: "sans-serif",
         defaultValue: {
-            fontSize: 72,
-            variant: "Bold",
-            lineHeight: "1em",
-            letterSpacing: "-0.02em",
+            fontSize: 88,
+            lineHeight: "1.1em",
+            letterSpacing: "0em",
         },
     },
     titleFont: {
@@ -706,10 +710,9 @@ addPropertyControls(LocaleJourneyTimeline, {
         controls: "extended",
         defaultFontType: "sans-serif",
         defaultValue: {
-            fontSize: 20,
-            variant: "Bold",
-            lineHeight: "1.3em",
-            letterSpacing: "-0.01em",
+            fontSize: 32,
+            lineHeight: "1.2em",
+            letterSpacing: "0em",
         },
     },
     bodyFont: {
@@ -719,7 +722,7 @@ addPropertyControls(LocaleJourneyTimeline, {
         defaultFontType: "sans-serif",
         defaultValue: {
             fontSize: 14,
-            variant: "Regular",
+            variant: "Bold",
             lineHeight: "1.6em",
             letterSpacing: "0em",
         },
@@ -742,12 +745,12 @@ addPropertyControls(LocaleJourneyTimeline, {
     lineColor: {
         type: ControlType.Color,
         title: "Line BG",
-        defaultValue: "#E0DDD5",
+        defaultValue: "rgb(215, 212, 203)",
     },
     lineFilledColor: {
         type: ControlType.Color,
         title: "Line Fill",
-        defaultValue: "#2A7D6E",
+        defaultValue: "rgb(15, 145, 79)",
     },
     lineWidth: {
         type: ControlType.Number,
@@ -762,27 +765,17 @@ addPropertyControls(LocaleJourneyTimeline, {
     markerSize: {
         type: ControlType.Number,
         title: "Marker Size",
-        defaultValue: 14,
-        min: 8,
-        max: 32,
+        defaultValue: 24,
+        min: 12,
+        max: 40,
         step: 2,
-        unit: "px",
-        displayStepper: true,
-    },
-    markerRadius: {
-        type: ControlType.Number,
-        title: "Marker Radius",
-        defaultValue: 2,
-        min: 0,
-        max: 16,
-        step: 1,
         unit: "px",
         displayStepper: true,
     },
     markerBorderWidth: {
         type: ControlType.Number,
         title: "Border Width",
-        defaultValue: 2,
+        defaultValue: 1,
         min: 1,
         max: 4,
         step: 1,
@@ -792,12 +785,17 @@ addPropertyControls(LocaleJourneyTimeline, {
     markerBorderColor: {
         type: ControlType.Color,
         title: "Marker Stroke",
-        defaultValue: "#2A7D6E",
+        defaultValue: "rgb(15, 145, 79)",
     },
     markerActiveColor: {
         type: ControlType.Color,
-        title: "Marker Fill",
-        defaultValue: "#2A7D6E",
+        title: "Marker Active",
+        defaultValue: "rgb(15, 145, 79)",
+    },
+    markerInactiveColor: {
+        type: ControlType.Color,
+        title: "Marker Inactive",
+        defaultValue: "rgb(245, 245, 241)",
     },
     columnGap: {
         type: ControlType.Number,
@@ -809,12 +807,12 @@ addPropertyControls(LocaleJourneyTimeline, {
         unit: "px",
         displayStepper: true,
     },
-    gap: {
+    rowGap: {
         type: ControlType.Number,
         title: "Row Gap",
-        defaultValue: 0,
+        defaultValue: 48,
         min: 0,
-        max: 40,
+        max: 80,
         step: 4,
         unit: "px",
         displayStepper: true,
