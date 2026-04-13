@@ -1,7 +1,7 @@
 // LocaleJourneyTimeline.tsx
 // Locale-aware year-by-year journey timeline with scroll-linked progress line
 // Automatically switches between RTL and LTR based on Framer locale
-// Version: 1.6.0
+// Version: 1.7.0
 
 import {
     addPropertyControls,
@@ -127,6 +127,7 @@ interface Props {
     markerBorderColor?: string
     markerActiveBorderColor?: string
     markerActiveColor?: string
+    yearWidth?: number
     columnGap?: number
     gap?: number
     animateOnScroll?: boolean
@@ -219,6 +220,7 @@ export default function LocaleJourneyTimeline({
     markerBorderColor = "#2A7D6E",
     markerActiveBorderColor = "#2A7D6E",
     markerActiveColor = "#2A7D6E",
+    yearWidth = 160,
     columnGap = 20,
     gap = 0,
     animateOnScroll = true,
@@ -566,13 +568,18 @@ export default function LocaleJourneyTimeline({
                             )}
                         </div>
 
-                        {/* Year column — large display number */}
+                        {/* Year column — fixed width + end-aligned so the
+                            title/description column always starts at the
+                            same horizontal position regardless of the
+                            year's natural digit width. */}
                         <div
                             ref={(el) => {
                                 els.current.years[i] = el
                             }}
                             style={{
                                 flexShrink: 0,
+                                width: yearWidth,
+                                textAlign: "end" as const,
                                 opacity: initActive ? 1 : 0.25,
                                 transition: YEAR_TRANSITION,
                             }}
@@ -791,6 +798,16 @@ addPropertyControls(LocaleJourneyTimeline, {
         type: ControlType.Color,
         title: "Marker Fill",
         defaultValue: "#2A7D6E",
+    },
+    yearWidth: {
+        type: ControlType.Number,
+        title: "Year Width",
+        defaultValue: 160,
+        min: 60,
+        max: 400,
+        step: 4,
+        unit: "px",
+        displayStepper: true,
     },
     columnGap: {
         type: ControlType.Number,
