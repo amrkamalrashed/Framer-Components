@@ -1,7 +1,7 @@
 // LocaleJourneyTimeline.tsx
 // Locale-aware year-by-year journey timeline with scroll-linked progress line
 // Automatically switches between RTL and LTR based on Framer locale
-// Version: 2.0.0
+// Version: 2.1.0
 
 import {
     addPropertyControls,
@@ -130,6 +130,8 @@ interface Props {
     yearWidth?: number
     columnGap?: number
     gap?: number
+    stackVertically?: boolean
+    stackGap?: number
     animateOnScroll?: boolean
     triggerPoint?: number
 }
@@ -223,6 +225,8 @@ export default function LocaleJourneyTimeline({
     yearWidth = 160,
     columnGap = 20,
     gap = 0,
+    stackVertically = false,
+    stackGap = 8,
     animateOnScroll = true,
     triggerPoint = 0.7,
 }: Props) {
@@ -478,7 +482,10 @@ export default function LocaleJourneyTimeline({
                         aria-label={`${rawYear}: ${title}`}
                         aria-current={isActive ? "step" : undefined}
                     >
-                        {/* Timeline column: square marker + connector line */}
+                        {/* Timeline column: square marker + connector line.
+                            Outer row stays horizontal so the timeline stays
+                            on the side. The year + text sub-container below
+                            flips to column when stackVertically is on. */}
                         <div
                             style={{
                                 display: "flex",
@@ -564,81 +571,111 @@ export default function LocaleJourneyTimeline({
                             )}
                         </div>
 
-                        {/* Year column — fixed width + end-aligned so the
-                            title/description column always starts at the
-                            same horizontal position regardless of the
-                            year's natural digit width. */}
+                        {/* Year + content sub-container. Horizontal by
+                            default; flips to vertical stack when
+                            stackVertically is on (use this on the Phone
+                            breakpoint to get year on top of text). */}
                         <div
-                            ref={(el) => {
-                                els.current.years[i] = el
-                            }}
-                            style={{
-                                flexShrink: 0,
-                                width: yearWidth,
-                                textAlign: "end" as const,
-                                opacity: initActive ? 1 : 0.25,
-                                transition: YEAR_TRANSITION,
-                            }}
-                        >
-                            <span
-                                style={{
-                                    ...yearStyle,
-                                    color: yearColor,
-                                    whiteSpace: "nowrap" as const,
-                                    userSelect: "none" as const,
-                                    WebkitFontSmoothing:
-                                        "antialiased" as any,
-                                    MozOsxFontSmoothing:
-                                        "grayscale" as any,
-                                }}
-                            >
-                                {year}
-                            </span>
-                        </div>
-
-                        {/* Content column — title + description */}
-                        <div
-                            ref={(el) => {
-                                els.current.texts[i] = el
-                            }}
                             style={{
                                 flex: 1,
                                 display: "flex",
-                                flexDirection: "column" as const,
-                                gap: 6,
-                                paddingBlockEnd: isLast ? 0 : 48,
-                                paddingBlockStart: contentOffset,
-                                opacity: initActive ? 1 : 0.3,
-                                transform: initActive
-                                    ? "translateX(0)"
-                                    : `translateX(${isRTL ? "8px" : "-8px"})`,
-                                transition: TEXT_TRANSITION,
+                                flexDirection: stackVertically
+                                    ? ("column" as const)
+                                    : ("row" as const),
+                                alignItems: stackVertically
+                                    ? ("flex-start" as const)
+                                    : ("stretch" as const),
+                                columnGap: stackVertically ? 0 : columnGap,
+                                rowGap: stackVertically ? stackGap : 0,
+                                minWidth: 0,
                             }}
                         >
-                            <span
+                            {/* Year column. In row mode: fixed width +
+                                end-aligned so content starts at a
+                                predictable position. In stacked mode:
+                                natural width, start-aligned (flows with
+                                the text below). */}
+                            <div
+                                ref={(el) => {
+                                    els.current.years[i] = el
+                                }}
                                 style={{
-                                    ...titleStyle,
-                                    color: titleColor,
-                                    WebkitFontSmoothing:
-                                        "antialiased" as any,
-                                    MozOsxFontSmoothing:
-                                        "grayscale" as any,
+                                    flexShrink: 0,
+                                    width: stackVertically
+                                        ? "auto"
+                                        : yearWidth,
+                                    textAlign: stackVertically
+                                        ? ("start" as const)
+                                        : ("end" as const),
+                                    opacity: initActive ? 1 : 0.25,
+                                    transition: YEAR_TRANSITION,
                                 }}
                             >
-                                {title}
-                            </span>
-                            <span
+                                <span
+                                    style={{
+                                        ...yearStyle,
+                                        color: yearColor,
+                                        whiteSpace: "nowrap" as const,
+                                        userSelect: "none" as const,
+                                        WebkitFontSmoothing:
+                                            "antialiased" as any,
+                                        MozOsxFontSmoothing:
+                                            "grayscale" as any,
+                                    }}
+                                >
+                                    {year}
+                                </span>
+                            </div>
+
+                            {/* Content column — title + description */}
+                            <div
+                                ref={(el) => {
+                                    els.current.texts[i] = el
+                                }}
                                 style={{
-                                    ...bodyStyle,
-                                    color: bodyColor,
-                                    WebkitFontSmoothing:
-                                        "antialiased" as any,
-                                    MozOsxFontSmoothing:
-                                        "grayscale" as any,
+                                    flex: stackVertically ? "none" : 1,
+                                    width: stackVertically
+                                        ? ("100%" as const)
+                                        : "auto",
+                                    display: "flex",
+                                    flexDirection: "column" as const,
+                                    gap: 6,
+                                    paddingBlockEnd: isLast ? 0 : 48,
+                                    paddingBlockStart: stackVertically
+                                        ? 0
+                                        : contentOffset,
+                                    opacity: initActive ? 1 : 0.3,
+                                    transform: initActive
+                                        ? "translateX(0)"
+                                        : `translateX(${isRTL ? "8px" : "-8px"})`,
+                                    transition: TEXT_TRANSITION,
                                 }}
                             >
-                                {desc}
-                            </span>
+                                <span
+                                    style={{
+                                        ...titleStyle,
+                                        color: titleColor,
+                                        WebkitFontSmoothing:
+                                            "antialiased" as any,
+                                        MozOsxFontSmoothing:
+                                            "grayscale" as any,
+                                    }}
+                                >
+                                    {title}
+                                </span>
+                                <span
+                                    style={{
+                                        ...bodyStyle,
+                                        color: bodyColor,
+                                        WebkitFontSmoothing:
+                                            "antialiased" as any,
+                                        MozOsxFontSmoothing:
+                                            "grayscale" as any,
+                                    }}
+                                >
+                                    {desc}
+                                </span>
+                            </div>
                         </div>
                     </div>
                 )
@@ -824,6 +861,24 @@ addPropertyControls(LocaleJourneyTimeline, {
         step: 4,
         unit: "px",
         displayStepper: true,
+    },
+    stackVertically: {
+        type: ControlType.Boolean,
+        title: "Stack",
+        defaultValue: false,
+        enabledTitle: "Vertical",
+        disabledTitle: "Horizontal",
+    },
+    stackGap: {
+        type: ControlType.Number,
+        title: "Stack Gap",
+        defaultValue: 8,
+        min: 0,
+        max: 32,
+        step: 2,
+        unit: "px",
+        displayStepper: true,
+        hidden: (props: Props) => !props.stackVertically,
     },
     animateOnScroll: {
         type: ControlType.Boolean,
