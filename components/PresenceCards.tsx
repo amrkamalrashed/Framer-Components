@@ -73,7 +73,7 @@ export default function PresenceCards(props: Props) {
         badgeBg = "#D73B55",
         badgeText = "#FFFFFF",
         showFlags = true,
-        showCityCount = true,
+        showCityCount = false,
         showFeaturedBadge = true,
         animations = true,
         entranceStagger = 0.06,
@@ -232,7 +232,7 @@ addPropertyControls(PresenceCards, {
 
     // Visibility
     showFlags: { type: ControlType.Boolean, title: "Flags", defaultValue: true, enabledTitle: "On", disabledTitle: "Off" },
-    showCityCount: { type: ControlType.Boolean, title: "City Count", defaultValue: true, enabledTitle: "On", disabledTitle: "Off" },
+    showCityCount: { type: ControlType.Boolean, title: "City Count", defaultValue: false, enabledTitle: "On", disabledTitle: "Off" },
     showFeaturedBadge: { type: ControlType.Boolean, title: "HQ Badge", defaultValue: true, enabledTitle: "On", disabledTitle: "Off" },
     featuredBadgeText: { type: ControlType.String, title: "Badge Text", defaultValue: "HQ", hidden: (p: any) => !p.showFeaturedBadge },
 
