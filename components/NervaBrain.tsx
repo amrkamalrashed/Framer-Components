@@ -756,6 +756,33 @@ const RED_COMBINED = RED.join(" ")
 const GLOW_COMBINED = GLOW.join(" ")
 const RED_GLOW_SLIM_COMBINED = RED_GLOW_SLIM.map(idx => RED[idx]).filter(Boolean).join(" ")
 
+type EntranceMode = "scatter" | "bloom" | "sequence" | "fade" | "rise"
+
+function getEntranceInitial(mode: EntranceMode, i: number) {
+  switch (mode) {
+    case "scatter": {
+      const angle = ((i * 137.5) % 360) * (Math.PI / 180)
+      const dist = 18 + (i % 3) * 8
+      return {
+        opacity: 0,
+        x: Math.cos(angle) * dist,
+        y: Math.sin(angle) * dist,
+        scale: 0.7,
+        filter: "blur(6px)",
+      }
+    }
+    case "bloom":
+      return { opacity: 0, x: 0, y: 0, scale: 0, filter: "blur(4px)" }
+    case "rise":
+      return { opacity: 0, x: 0, y: 24, scale: 1, filter: "blur(2px)" }
+    case "fade":
+      return { opacity: 0, x: 0, y: 0, scale: 1, filter: "blur(0px)" }
+    case "sequence":
+    default:
+      return { opacity: 0, x: 0, y: 0, scale: 0.92, filter: "blur(2px)" }
+  }
+}
+
 interface Props {
   logoColor: string
   circuitColor: string
@@ -764,6 +791,11 @@ interface Props {
   speed: number
   glowStrength: number
   glowDirection: "inward" | "outward" | "pulse"
+  entranceEnabled: boolean
+  entranceMode: "scatter" | "bloom" | "sequence" | "fade" | "rise"
+  entranceDuration: number
+  entranceStagger: number
+  entranceDelay: number
   style: React.CSSProperties
 }
 
@@ -783,6 +815,11 @@ export default function NervaBrain(props: Props) {
     speed = 3,
     glowStrength = 2,
     glowDirection = "inward" as const,
+    entranceEnabled = true,
+    entranceMode = "scatter" as const,
+    entranceDuration = 0.7,
+    entranceStagger = 0.07,
+    entranceDelay = 0.25,
     style,
   } = props
 
@@ -983,25 +1020,26 @@ export default function NervaBrain(props: Props) {
         </g>
 
 
-        {/* Logo brain fills — staggered scatter entrance (preloader-style) */}
+        {/* Logo brain fills — mode-driven entrance */}
         <g>
           {LOGO_FILLS.map((d, i) => {
-            const angle = ((i * 137.5) % 360) * (Math.PI / 180)
-            const dist = 18 + (i % 3) * 8
-            const ox = Math.cos(angle) * dist
-            const oy = Math.sin(angle) * dist
+            if (!entranceEnabled) {
+              return <path key={i} d={d} fill={logoColor} />
+            }
+            const initial = getEntranceInitial(entranceMode, i)
+            const t = i * entranceStagger + entranceDelay
             return (
               <motion.path
                 key={i}
                 d={d}
                 fill={logoColor}
-                initial={{ opacity: 0, x: ox, y: oy, scale: 0.7, filter: "blur(6px)" }}
+                initial={initial}
                 animate={{ opacity: 1, x: 0, y: 0, scale: 1, filter: "blur(0px)" }}
                 transition={{
-                  duration: 0.7,
-                  delay: i * 0.07 + 0.25,
+                  duration: entranceDuration,
+                  delay: t,
                   ease: [0.16, 1, 0.3, 1],
-                  filter: { duration: 0.5, delay: i * 0.07 + 0.3 },
+                  filter: { duration: entranceDuration * 0.7, delay: t + 0.05 },
                 }}
                 style={{ transformOrigin: "center center" }}
               />
@@ -1037,11 +1075,56 @@ export default function NervaBrain(props: Props) {
 }
 
 addPropertyControls(NervaBrain, {
-  logoColor: { type: ControlType.Color, title: "Logo Color", defaultValue: "#D73B55", description: "Main brain logo fill color" },
-  circuitColor: { type: ControlType.Color, title: "Circuit Color", defaultValue: "rgba(214, 58, 84, 0.6)", description: "Circuit line gradient color" },
-  glowColor: { type: ControlType.Color, title: "Glow Color", defaultValue: "#FF6B8A", description: "Glow and shine effect color" },
-  terminalColor: { type: ControlType.Color, title: "Terminal Color", defaultValue: "#FF8FA8", description: "Terminal node pulse color" },
-  speed: { type: ControlType.Number, title: "Speed", min: 0.5, max: 10, step: 0.5, defaultValue: 3, description: "Animation cycle duration in seconds" },
-  glowStrength: { type: ControlType.Number, title: "Glow Strength", min: 1, max: 30, step: 1, defaultValue: 2, description: "Blur radius for glow effects" },
-  glowDirection: { type: ControlType.Enum, title: "Glow Direction", options: ["inward", "outward", "pulse"], optionTitles: ["Inward ←", "Outward →", "Pulse ↔"], defaultValue: "inward", description: "Wave sweep direction pattern" },
+  // ----- Colors -----
+  logoColor: { type: ControlType.Color, title: "Logo", defaultValue: "#D73B55" },
+  circuitColor: { type: ControlType.Color, title: "Circuits", defaultValue: "rgba(214, 58, 84, 0.6)" },
+  glowColor: { type: ControlType.Color, title: "Glow", defaultValue: "#FF6B8A" },
+  terminalColor: { type: ControlType.Color, title: "Terminals", defaultValue: "#FF8FA8" },
+
+  // ----- Idle Animation -----
+  speed: { type: ControlType.Number, title: "Speed", min: 0.5, max: 10, step: 0.5, defaultValue: 3, unit: "s" },
+  glowStrength: { type: ControlType.Number, title: "Glow Blur", min: 1, max: 30, step: 1, defaultValue: 2 },
+  glowDirection: {
+    type: ControlType.Enum,
+    title: "Wave",
+    options: ["inward", "outward", "pulse"],
+    optionTitles: ["Inward", "Outward", "Pulse"],
+    defaultValue: "inward",
+    displaySegmentedControl: true,
+  },
+
+  // ----- Entrance Animation -----
+  entranceEnabled: {
+    type: ControlType.Boolean,
+    title: "Entrance",
+    defaultValue: true,
+    enabledTitle: "On",
+    disabledTitle: "Off",
+  },
+  entranceMode: {
+    type: ControlType.Enum,
+    title: "Mode",
+    options: ["scatter", "bloom", "rise", "sequence", "fade"],
+    optionTitles: ["Scatter", "Bloom", "Rise", "Sequence", "Fade"],
+    defaultValue: "scatter",
+    hidden: (p: any) => !p.entranceEnabled,
+  },
+  entranceDuration: {
+    type: ControlType.Number,
+    title: "Duration",
+    min: 0.2, max: 4, step: 0.1, defaultValue: 0.7, unit: "s",
+    hidden: (p: any) => !p.entranceEnabled,
+  },
+  entranceStagger: {
+    type: ControlType.Number,
+    title: "Stagger",
+    min: 0, max: 0.3, step: 0.01, defaultValue: 0.07, unit: "s",
+    hidden: (p: any) => !p.entranceEnabled,
+  },
+  entranceDelay: {
+    type: ControlType.Number,
+    title: "Delay",
+    min: 0, max: 3, step: 0.1, defaultValue: 0.25, unit: "s",
+    hidden: (p: any) => !p.entranceEnabled,
+  },
 })
