@@ -1,7 +1,7 @@
 // LocaleJourneyTimeline.tsx
 // Locale-aware year-by-year journey timeline with scroll-linked progress line
 // Automatically switches between RTL and LTR based on Framer locale
-// Version: 1.0.0
+// Version: 1.3.0
 
 import {
     addPropertyControls,
@@ -18,66 +18,6 @@ import {
     CSSProperties,
 } from "react"
 
-/* ━━━ font resolver ━━━ */
-
-function resolveFont(
-    font: any,
-    defaults: {
-        size: number
-        weight: number
-        lineHeight: string
-        letterSpacing: string
-    }
-) {
-    if (!font || typeof font !== "object") {
-        return {
-            fontFamily: "inherit",
-            fontSize: defaults.size,
-            fontWeight: defaults.weight,
-            lineHeight: defaults.lineHeight,
-            letterSpacing: defaults.letterSpacing,
-            fontStyle: undefined,
-        }
-    }
-
-    const fontFamily = font.fontFamily || "inherit"
-
-    let fontSize = defaults.size
-    if (font.fontSize != null) {
-        if (typeof font.fontSize === "number") fontSize = font.fontSize
-        else {
-            const p = parseFloat(String(font.fontSize))
-            if (!isNaN(p)) fontSize = p
-        }
-    }
-
-    let fontWeight = defaults.weight
-    if (font.fontWeight != null) {
-        if (typeof font.fontWeight === "number") fontWeight = font.fontWeight
-        else {
-            const p = parseInt(String(font.fontWeight), 10)
-            if (!isNaN(p)) fontWeight = p
-        }
-    }
-
-    let lineHeight: string | number = defaults.lineHeight
-    if (font.lineHeight != null) lineHeight = font.lineHeight
-
-    let letterSpacing: string | number = defaults.letterSpacing
-    if (font.letterSpacing != null) letterSpacing = font.letterSpacing
-
-    const fontStyle = font.fontStyle || undefined
-
-    return {
-        fontFamily,
-        fontSize,
-        fontWeight,
-        lineHeight,
-        letterSpacing,
-        fontStyle,
-    }
-}
-
 /* ━━━ RTL detection ━━━ */
 
 const RTL_LANGS = new Set(["ar", "he", "fa", "ur"])
@@ -85,6 +25,35 @@ const RTL_LANGS = new Set(["ar", "he", "fa", "ur"])
 function isRTLLocale(code: string): boolean {
     if (!code) return false
     return RTL_LANGS.has(code.split("-")[0].toLowerCase())
+}
+
+/* ━━━ digit localization ━━━ */
+
+// Map Latin 0-9 to Arabic-Indic ٠-٩ (used by Arabic locale)
+const ARABIC_INDIC_DIGITS = [
+    "\u0660",
+    "\u0661",
+    "\u0662",
+    "\u0663",
+    "\u0664",
+    "\u0665",
+    "\u0666",
+    "\u0667",
+    "\u0668",
+    "\u0669",
+]
+
+function localizeDigits(input: string, localeCode: string): string {
+    if (!input) return input
+    const lang = (localeCode || "").split("-")[0].toLowerCase()
+    if (lang !== "ar") return input
+    let out = ""
+    for (let i = 0; i < input.length; i++) {
+        const c = input.charCodeAt(i)
+        if (c >= 48 && c <= 57) out += ARABIC_INDIC_DIGITS[c - 48]
+        else out += input[i]
+    }
+    return out
 }
 
 /* ━━━ transition constants ━━━ */
@@ -163,57 +132,56 @@ interface Props {
 const DEFAULT_MILESTONES: MilestoneItem[] = [
     {
         year: "2018",
-        title: "The Foundation",
+        title: "التأسيس",
         description:
-            "Started as a local roastery, earning the trust of the coffee community in the region.",
+            "بدأت محمصة سويل كمحمصة محلية في الدمام، واكتسبت ثقة مجتمع القهوة في المنطقة الشرقية.",
     },
     {
         year: "2019",
-        title: "Building the Base",
+        title: "بناء الأساس",
         description:
-            "Expanding the client network, developing roast profiles, and establishing a roasting identity.",
+            "توسيع شبكة العملاء، تطوير البروفايلات، وترسيخ هوية التحميص.",
     },
     {
         year: "2020",
-        title: "The Shift",
+        title: "التحول",
         description:
-            "Full focus on roasting and launching the online store in response to market changes.",
+            "التركيز الكامل على التحميص وإطلاق المتجر الإلكتروني استجابة لتغير السوق.",
     },
     {
         year: "2021",
-        title: "Growth & Continuity",
+        title: "الاستمرار والنمو",
         description:
-            "Expanding partnerships and retail points while maintaining consistency and quality.",
+            "توسيع الشراكات وزيادة نقاط البيع مع الحفاظ على الثبات والجودة.",
     },
     {
         year: "2022",
-        title: "National Reach",
+        title: "الانتشار الوطني",
         description:
-            "Rising demand across the country and scaling production capacity.",
+            "ارتفاع الطلب على مستوى المملكة، وتطوير القدرة الإنتاجية.",
     },
     {
         year: "2023",
-        title: "The Direct Experience",
+        title: "التجربة المباشرة",
         description:
-            "Opening a flagship cafe, connecting the roastery with the daily coffee experience.",
+            "افتتاح مقهى سويل في الخبر، وربط المحمصة بالتجربة اليومية.",
     },
     {
         year: "2024",
-        title: "Regional Expansion",
-        description:
-            "Reaching new markets, growing the team and operations.",
+        title: "التوسع الإقليمي",
+        description: "الوصول إلى أسواق الخليج، وتكبير الفريق والعمليات.",
     },
     {
         year: "2025",
-        title: "A Step Forward",
+        title: "خطوة للأمام",
         description:
-            "Moving to an advanced facility equipped with the latest roasting technology.",
+            "الانتقال إلى مصنع متطور في المدينة الصناعية الثانية بالدمام، مجهز بأحدث تقنيات التحميص.",
     },
     {
         year: "2026",
-        title: "The Next Chapter",
+        title: "المرحلة القادمة",
         description:
-            "Continuing to grow while preserving our identity: precise roasting, transparent sourcing, and lasting impact.",
+            "نستمر في التوسع مع الحفاظ على الهوية: تحميص دقيق، مصدر شفاف، وأثر مستدام.",
     },
 ]
 
@@ -394,37 +362,43 @@ export default function LocaleJourneyTimeline({
         isRTL,
     ])
 
-    // Memoize resolved fonts
-    const yearF = useMemo(
-        () =>
-            resolveFont(yearFont, {
-                size: 72,
-                weight: 700,
-                lineHeight: "1em",
-                letterSpacing: "-0.02em",
-            }),
+    // Memoize font style objects. Defaults first, then spread Framer's raw
+    // font object on top so EVERY property it emits is applied — including
+    // variable-font variants, fontVariationSettings, custom-font family
+    // tokens, etc. (Cherry-picking individual props drops these.)
+    const yearStyle = useMemo(
+        () => ({
+            fontFamily: "inherit",
+            fontSize: 72,
+            fontWeight: 700,
+            lineHeight: "1em",
+            letterSpacing: "-0.02em",
+            ...(yearFont || {}),
+        }),
         [yearFont]
     )
 
-    const titleF = useMemo(
-        () =>
-            resolveFont(titleFont, {
-                size: 20,
-                weight: 700,
-                lineHeight: "1.3em",
-                letterSpacing: "-0.01em",
-            }),
+    const titleStyle = useMemo(
+        () => ({
+            fontFamily: "inherit",
+            fontSize: 20,
+            fontWeight: 700,
+            lineHeight: "1.3em",
+            letterSpacing: "-0.01em",
+            ...(titleFont || {}),
+        }),
         [titleFont]
     )
 
-    const bodyF = useMemo(
-        () =>
-            resolveFont(bodyFont, {
-                size: 14,
-                weight: 400,
-                lineHeight: "1.6em",
-                letterSpacing: "0em",
-            }),
+    const bodyStyle = useMemo(
+        () => ({
+            fontFamily: "inherit",
+            fontSize: 14,
+            fontWeight: 400,
+            lineHeight: "1.6em",
+            letterSpacing: "0em",
+            ...(bodyFont || {}),
+        }),
         [bodyFont]
     )
 
@@ -444,9 +418,12 @@ export default function LocaleJourneyTimeline({
 
     const initActive = !shouldAnimate
 
-    // Vertical offset to center marker with the year number
+    // Vertical offset to center marker with the year number.
+    // Derive numeric size from yearStyle.fontSize (number, "72", or "72px").
     const yearSize =
-        typeof yearF.fontSize === "number" ? yearF.fontSize : 72
+        typeof yearStyle.fontSize === "number"
+            ? yearStyle.fontSize
+            : parseFloat(String(yearStyle.fontSize)) || 72
     const markerOffset = Math.max(
         0,
         Math.round(yearSize * 0.45 - markerSize * 0.5)
@@ -477,7 +454,8 @@ export default function LocaleJourneyTimeline({
                     : initActive
                 const title = ms?.title || `Milestone ${i + 1}`
                 const desc = ms?.description || ""
-                const year = ms?.year || ""
+                const rawYear = ms?.year || ""
+                const year = localizeDigits(rawYear, localeCode || "")
 
                 return (
                     <div
@@ -490,7 +468,7 @@ export default function LocaleJourneyTimeline({
                             position: "relative",
                         }}
                         role="listitem"
-                        aria-label={`${year}: ${title}`}
+                        aria-label={`${rawYear}: ${title}`}
                         aria-current={isActive ? "step" : undefined}
                     >
                         {/* Timeline column: square marker + connector line */}
@@ -526,39 +504,53 @@ export default function LocaleJourneyTimeline({
                                 aria-hidden="true"
                             />
 
-                            {/* Connector line — scaleY driven by scroll */}
+                            {/* Connector line — extends continuously from
+                                the current square down through the next row's
+                                top padding so there is no visible gap between
+                                items. Scroll-driven fill scales on top. */}
                             {!isLast && (
                                 <div
                                     style={{
                                         flex: 1,
                                         width: lineWidth,
-                                        backgroundColor: lineColor,
                                         position: "relative" as const,
-                                        overflow: "hidden" as const,
-                                        marginBlockStart: 8,
-                                        marginBlockEnd: 8,
                                         minHeight: 24,
                                     }}
                                 >
                                     <div
-                                        ref={(el) => {
-                                            els.current.lineFills[i] = el
-                                        }}
                                         style={{
                                             position: "absolute" as const,
                                             top: 0,
                                             insetInlineStart: 0,
                                             width: "100%",
-                                            height: "100%",
-                                            backgroundColor:
-                                                lineFilledColor,
-                                            transformOrigin: "top center",
-                                            transform: initActive
-                                                ? "scaleY(1)"
-                                                : "scaleY(0)",
-                                            transition: LINE_TRANSITION,
+                                            // Overflow into next row's
+                                            // markerOffset padding so the
+                                            // line touches the next square.
+                                            height: `calc(100% + ${markerOffset}px)`,
+                                            backgroundColor: lineColor,
+                                            overflow: "hidden" as const,
                                         }}
-                                    />
+                                    >
+                                        <div
+                                            ref={(el) => {
+                                                els.current.lineFills[i] = el
+                                            }}
+                                            style={{
+                                                position: "absolute" as const,
+                                                top: 0,
+                                                insetInlineStart: 0,
+                                                width: "100%",
+                                                height: "100%",
+                                                backgroundColor:
+                                                    lineFilledColor,
+                                                transformOrigin: "top center",
+                                                transform: initActive
+                                                    ? "scaleY(1)"
+                                                    : "scaleY(0)",
+                                                transition: LINE_TRANSITION,
+                                            }}
+                                        />
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -576,12 +568,7 @@ export default function LocaleJourneyTimeline({
                         >
                             <span
                                 style={{
-                                    fontFamily: yearF.fontFamily,
-                                    fontSize: yearF.fontSize,
-                                    fontWeight: yearF.fontWeight,
-                                    lineHeight: yearF.lineHeight,
-                                    letterSpacing: yearF.letterSpacing,
-                                    fontStyle: yearF.fontStyle,
+                                    ...yearStyle,
                                     color: yearColor,
                                     whiteSpace: "nowrap" as const,
                                     userSelect: "none" as const,
@@ -616,12 +603,7 @@ export default function LocaleJourneyTimeline({
                         >
                             <span
                                 style={{
-                                    fontFamily: titleF.fontFamily,
-                                    fontSize: titleF.fontSize,
-                                    fontWeight: titleF.fontWeight,
-                                    lineHeight: titleF.lineHeight,
-                                    letterSpacing: titleF.letterSpacing,
-                                    fontStyle: titleF.fontStyle,
+                                    ...titleStyle,
                                     color: titleColor,
                                     WebkitFontSmoothing:
                                         "antialiased" as any,
@@ -633,12 +615,7 @@ export default function LocaleJourneyTimeline({
                             </span>
                             <span
                                 style={{
-                                    fontFamily: bodyF.fontFamily,
-                                    fontSize: bodyF.fontSize,
-                                    fontWeight: bodyF.fontWeight,
-                                    lineHeight: bodyF.lineHeight,
-                                    letterSpacing: bodyF.letterSpacing,
-                                    fontStyle: bodyF.fontStyle,
+                                    ...bodyStyle,
                                     color: bodyColor,
                                     WebkitFontSmoothing:
                                         "antialiased" as any,
