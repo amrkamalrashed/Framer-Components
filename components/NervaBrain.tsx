@@ -1,5 +1,5 @@
 import React from "react"
-import { addPropertyControls, ControlType } from "framer"
+import { addPropertyControls, ControlType, RenderTarget } from "framer"
 import { motion } from "framer-motion"
 
 const DARK: string[] = [
@@ -756,6 +756,33 @@ const RED_COMBINED = RED.join(" ")
 const GLOW_COMBINED = GLOW.join(" ")
 const RED_GLOW_SLIM_COMBINED = RED_GLOW_SLIM.map(idx => RED[idx]).filter(Boolean).join(" ")
 
+type EntranceMode = "scatter" | "bloom" | "sequence" | "fade" | "rise"
+
+function getEntranceInitial(mode: EntranceMode, i: number) {
+  switch (mode) {
+    case "scatter": {
+      const angle = ((i * 137.5) % 360) * (Math.PI / 180)
+      const dist = 18 + (i % 3) * 8
+      return {
+        opacity: 0,
+        x: Math.cos(angle) * dist,
+        y: Math.sin(angle) * dist,
+        scale: 0.7,
+        filter: "blur(6px)",
+      }
+    }
+    case "bloom":
+      return { opacity: 0, x: 0, y: 0, scale: 0, filter: "blur(4px)" }
+    case "rise":
+      return { opacity: 0, x: 0, y: 24, scale: 1, filter: "blur(2px)" }
+    case "fade":
+      return { opacity: 0, x: 0, y: 0, scale: 1, filter: "blur(0px)" }
+    case "sequence":
+    default:
+      return { opacity: 0, x: 0, y: 0, scale: 0.92, filter: "blur(2px)" }
+  }
+}
+
 interface Props {
   logoColor: string
   circuitColor: string
@@ -764,6 +791,15 @@ interface Props {
   speed: number
   glowStrength: number
   glowDirection: "inward" | "outward" | "pulse"
+  animations: boolean
+  entranceEnabled: boolean
+  entranceMode: EntranceMode
+  entranceDuration: number
+  entranceStagger: number
+  entranceDelay: number
+  bootSequence: boolean
+  staticOnExport: boolean
+  ariaLabel: string
   style: React.CSSProperties
 }
 
@@ -783,8 +819,21 @@ export default function NervaBrain(props: Props) {
     speed = 3,
     glowStrength = 2,
     glowDirection = "inward" as const,
+    animations = true,
+    entranceEnabled = true,
+    entranceMode = "scatter" as const,
+    entranceDuration = 0.7,
+    entranceStagger = 0.07,
+    entranceDelay = 0.25,
+    bootSequence = true,
+    staticOnExport = false,
+    ariaLabel = "Nerva neural network",
     style,
   } = props
+
+  // Render a flat snapshot when animations are disabled OR during static export build.
+  // Useful for mobile breakpoints / low-power devices / SEO-friendly export.
+  const isStatic = !animations || (staticOnExport && RenderTarget.current() === "export")
 
   const dur = speed
   const cx = 744
@@ -808,6 +857,14 @@ export default function NervaBrain(props: Props) {
     obs.observe(el)
     return () => obs.disconnect()
   }, [])
+
+  // --- Boot sequence timing (logo first, then circuits, terminals, idle) ---
+  const logoLandedAt = entranceEnabled
+    ? entranceDelay + entranceDuration + (LOGO_FILLS.length - 1) * entranceStagger
+    : 0
+  const circuitsAt = bootSequence ? logoLandedAt - 0.05 : 0
+  const terminalsAt = bootSequence ? logoLandedAt + 0.15 : 0
+  const idleStartAt = bootSequence ? terminalsAt + 0.4 : 0
 
   const easeBreath = "cubic-bezier(0.45, 0.05, 0.55, 0.95)"
   const easePulse = "cubic-bezier(0.37, 0, 0.63, 1)"
@@ -870,9 +927,11 @@ export default function NervaBrain(props: Props) {
     ${isPulse ? `
     .${scope} .nb-glow path {
       animation: nbGlowPulse${uid} ${dur * 2.5}s ${easeBreath} infinite;
+      animation-delay: ${idleStartAt}s;
     }
     .${scope} .nb-red-glow path {
       animation: nbRedPulse${uid} ${dur * 3}s ${easeBreath} infinite;
+      animation-delay: ${idleStartAt}s;
     }
     ` : ""}
 
@@ -887,6 +946,7 @@ export default function NervaBrain(props: Props) {
     }
     .${scope} .nb-terminals path {
       animation: nbTerminalPulse${uid} ${dur * 1.4}s ${easePulse} infinite;
+      animation-delay: ${idleStartAt}s;
     }
 
     /* ===== AMBIENT HALO ===== */
@@ -908,6 +968,7 @@ export default function NervaBrain(props: Props) {
     }
     .${scope} .nb-ambient {
       animation: ${isInward ? `nbAmbientIn${uid}` : glowDirection === "outward" ? `nbAmbientOut${uid}` : `nbAmbientPulse${uid}`} ${isPulse ? dur * 2.5 : waveCycle}s ${easeBreath} infinite;
+      animation-delay: ${idleStartAt}s;
       transform-origin: ${cx}px ${cy}px;
     }
 
@@ -919,12 +980,47 @@ export default function NervaBrain(props: Props) {
     }
     .${scope} .nb-dark-circuits {
       animation: nbDarkBreath${uid} ${dur * 6}s ${easeBreath} infinite;
+      animation-delay: ${idleStartAt}s;
     }
 
   `
 
+  // ----- Flat snapshot: animations off OR static export -----
+  if (isStatic) {
+    return (
+      <div ref={containerRef} className={scope} role="img" aria-label={ariaLabel}
+        style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", ...style }}>
+        <svg viewBox="0 0 1483 1686" fill="none" xmlns="http://www.w3.org/2000/svg"
+          style={{ width: "100%", height: "100%", maxWidth: "100%", maxHeight: "100%" }}>
+          <ellipse cx={cx} cy={cy} rx="400" ry="440" fill={glowColor} opacity="0.08" />
+          <g stroke={circuitColor} strokeWidth="2.82886" strokeMiterlimit="10" opacity="0.85">
+            <path d={DARK_COMBINED} />
+          </g>
+          <g stroke={logoColor} strokeWidth="1.81408" opacity="0.85">
+            <path d={RED_COMBINED} />
+          </g>
+          <g>
+            {LOGO_FILLS.map((d, i) => <path key={i} d={d} fill={logoColor} />)}
+          </g>
+          <g>
+            {TERMINALS.map((d, i) =>
+              i === 4 ? null : <path key={i} d={d} fill="#0C0101" stroke={terminalColor} strokeWidth="2.82886" />
+            )}
+          </g>
+        </svg>
+      </div>
+    )
+  }
+
+  // ----- Boot fade-in transitions (used per layer when bootSequence enabled) -----
+  const fadeIn = (delay: number, finalOpacity = 1) =>
+    bootSequence
+      ? { initial: { opacity: 0 }, animate: { opacity: finalOpacity }, transition: { delay, duration: 0.45, ease: "easeOut" as const } }
+      : {}
+
   return (
-    <div ref={containerRef} className={scope} style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", ...style }}>
+    <div ref={containerRef} className={scope} role="img" aria-label={ariaLabel}
+      style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", ...style }}>
       <style dangerouslySetInnerHTML={{ __html: css }} />
       <svg viewBox="0 0 1483 1686" fill="none" xmlns="http://www.w3.org/2000/svg"
         style={{ width: "100%", height: "100%", maxWidth: "100%", maxHeight: "100%" }}>
@@ -969,39 +1065,42 @@ export default function NervaBrain(props: Props) {
           </radialGradient>
         </defs>
 
-        {/* Ambient radial halo */}
-        <ellipse className="nb-ambient" cx={cx} cy={cy} rx="400" ry="440" fill={`url(#nbHG${uid})`} />
+        {/* Ambient radial halo (boot-faded) */}
+        <motion.ellipse className="nb-ambient" cx={cx} cy={cy} rx="400" ry="440" fill={`url(#nbHG${uid})`}
+          {...fadeIn(circuitsAt)} />
 
-        {/* Dark circuits - combined */}
-        <g className="nb-dark-circuits" stroke={`url(#nbCW${uid})`} strokeWidth="2.82886" strokeMiterlimit="10">
+        {/* Dark circuits — radiate in after logo lands */}
+        <motion.g className="nb-dark-circuits" stroke={`url(#nbCW${uid})`} strokeWidth="2.82886" strokeMiterlimit="10"
+          {...fadeIn(circuitsAt, 0.85)}>
           <path d={DARK_COMBINED} />
-        </g>
+        </motion.g>
 
-        {/* Red accent circuits - combined static */}
-        <g stroke={logoColor} strokeWidth="1.81408" opacity="0.85">
+        {/* Red accent circuits */}
+        <motion.g stroke={logoColor} strokeWidth="1.81408"
+          {...fadeIn(circuitsAt + 0.1, 0.85)}>
           <path d={RED_COMBINED} />
-        </g>
+        </motion.g>
 
-
-        {/* Logo brain fills — staggered scatter entrance (preloader-style) */}
+        {/* Logo brain fills — mode-driven entrance */}
         <g>
           {LOGO_FILLS.map((d, i) => {
-            const angle = ((i * 137.5) % 360) * (Math.PI / 180)
-            const dist = 18 + (i % 3) * 8
-            const ox = Math.cos(angle) * dist
-            const oy = Math.sin(angle) * dist
+            if (!entranceEnabled) {
+              return <path key={i} d={d} fill={logoColor} />
+            }
+            const initial = getEntranceInitial(entranceMode, i)
+            const t = i * entranceStagger + entranceDelay
             return (
               <motion.path
                 key={i}
                 d={d}
                 fill={logoColor}
-                initial={{ opacity: 0, x: ox, y: oy, scale: 0.7, filter: "blur(6px)" }}
+                initial={initial}
                 animate={{ opacity: 1, x: 0, y: 0, scale: 1, filter: "blur(0px)" }}
                 transition={{
-                  duration: 0.7,
-                  delay: i * 0.07 + 0.25,
+                  duration: entranceDuration,
+                  delay: t,
                   ease: [0.16, 1, 0.3, 1],
-                  filter: { duration: 0.5, delay: i * 0.07 + 0.3 },
+                  filter: { duration: entranceDuration * 0.7, delay: t + 0.05 },
                 }}
                 style={{ transformOrigin: "center center" }}
               />
@@ -1010,7 +1109,8 @@ export default function NervaBrain(props: Props) {
         </g>
 
         {/* GLOW LAYERS — wrapped in mask for inward/outward wave sweep */}
-        <g mask={!isPulse && isVisible ? `url(#nbWM${uid})` : undefined}>
+        <motion.g mask={!isPulse && isVisible ? `url(#nbWM${uid})` : undefined}
+          {...fadeIn(idleStartAt)}>
           {/* RED glow — single combined path */}
           <g className="nb-red-glow" filter={`url(#nbRG${uid})`} stroke={glowColor} strokeWidth="2.5" strokeOpacity="0.7">
             <path d={RED_GLOW_SLIM_COMBINED} />
@@ -1020,28 +1120,109 @@ export default function NervaBrain(props: Props) {
           <g className="nb-glow" filter={`url(#nbGF${uid})`} stroke={glowColor} strokeWidth="4">
             <path d={GLOW_COMBINED} />
           </g>
-        </g>
+        </motion.g>
 
         {/* Terminal nodes — index 4 excluded (overlaps logo center) */}
-        <g className="nb-terminals">
+        <motion.g className="nb-terminals" {...fadeIn(terminalsAt)}>
           {TERMINALS.map((d, i) => (
             i === 4 ? null : (
               <path key={i} d={d} fill="#0C0101" stroke={terminalColor} strokeWidth="2.82886"
-                style={{ animationDelay: `${-(i * 0.35 * dur)}s` }} />
+                style={{ animationDelay: `${-(i * 0.35 * dur) + idleStartAt}s` }} />
             )
           ))}
-        </g>
+        </motion.g>
       </svg>
     </div>
   )
 }
 
 addPropertyControls(NervaBrain, {
-  logoColor: { type: ControlType.Color, title: "Logo Color", defaultValue: "#D73B55", description: "Main brain logo fill color" },
-  circuitColor: { type: ControlType.Color, title: "Circuit Color", defaultValue: "rgba(214, 58, 84, 0.6)", description: "Circuit line gradient color" },
-  glowColor: { type: ControlType.Color, title: "Glow Color", defaultValue: "#FF6B8A", description: "Glow and shine effect color" },
-  terminalColor: { type: ControlType.Color, title: "Terminal Color", defaultValue: "#FF8FA8", description: "Terminal node pulse color" },
-  speed: { type: ControlType.Number, title: "Speed", min: 0.5, max: 10, step: 0.5, defaultValue: 3, description: "Animation cycle duration in seconds" },
-  glowStrength: { type: ControlType.Number, title: "Glow Strength", min: 1, max: 30, step: 1, defaultValue: 2, description: "Blur radius for glow effects" },
-  glowDirection: { type: ControlType.Enum, title: "Glow Direction", options: ["inward", "outward", "pulse"], optionTitles: ["Inward ←", "Outward →", "Pulse ↔"], defaultValue: "inward", description: "Wave sweep direction pattern" },
+  // ----- Colors -----
+  logoColor: { type: ControlType.Color, title: "Logo", defaultValue: "#D73B55" },
+  circuitColor: { type: ControlType.Color, title: "Circuits", defaultValue: "rgba(214, 58, 84, 0.6)" },
+  glowColor: { type: ControlType.Color, title: "Glow", defaultValue: "#FF6B8A" },
+  terminalColor: { type: ControlType.Color, title: "Terminals", defaultValue: "#FF8FA8" },
+
+  // ----- Animations master switch -----
+  animations: {
+    type: ControlType.Boolean,
+    title: "Animations",
+    defaultValue: true,
+    enabledTitle: "On",
+    disabledTitle: "Off",
+  },
+
+  // ----- Idle Animation -----
+  speed: { type: ControlType.Number, title: "Speed", min: 0.5, max: 10, step: 0.5, defaultValue: 3, unit: "s", hidden: (p: any) => !p.animations },
+  glowStrength: { type: ControlType.Number, title: "Glow Blur", min: 1, max: 30, step: 1, defaultValue: 2, hidden: (p: any) => !p.animations },
+  glowDirection: {
+    type: ControlType.Enum,
+    title: "Wave",
+    options: ["inward", "outward", "pulse"],
+    optionTitles: ["Inward", "Outward", "Pulse"],
+    defaultValue: "inward",
+    displaySegmentedControl: true,
+    hidden: (p: any) => !p.animations,
+  },
+
+  // ----- Entrance Animation -----
+  entranceEnabled: {
+    type: ControlType.Boolean,
+    title: "Entrance",
+    defaultValue: true,
+    enabledTitle: "On",
+    disabledTitle: "Off",
+    hidden: (p: any) => !p.animations,
+  },
+  entranceMode: {
+    type: ControlType.Enum,
+    title: "Mode",
+    options: ["scatter", "bloom", "rise", "sequence", "fade"],
+    optionTitles: ["Scatter", "Bloom", "Rise", "Sequence", "Fade"],
+    defaultValue: "scatter",
+    hidden: (p: any) => !p.animations || !p.entranceEnabled,
+  },
+  entranceDuration: {
+    type: ControlType.Number,
+    title: "Duration",
+    min: 0.2, max: 4, step: 0.1, defaultValue: 0.7, unit: "s",
+    hidden: (p: any) => !p.animations || !p.entranceEnabled,
+  },
+  entranceStagger: {
+    type: ControlType.Number,
+    title: "Stagger",
+    min: 0, max: 0.3, step: 0.01, defaultValue: 0.07, unit: "s",
+    hidden: (p: any) => !p.animations || !p.entranceEnabled,
+  },
+  entranceDelay: {
+    type: ControlType.Number,
+    title: "Delay",
+    min: 0, max: 3, step: 0.1, defaultValue: 0.25, unit: "s",
+    hidden: (p: any) => !p.animations || !p.entranceEnabled,
+  },
+
+  // ----- Boot Choreography -----
+  bootSequence: {
+    type: ControlType.Boolean,
+    title: "Boot Sequence",
+    defaultValue: true,
+    enabledTitle: "On",
+    disabledTitle: "Off",
+    hidden: (p: any) => !p.animations,
+  },
+
+  // ----- Performance / A11y -----
+  staticOnExport: {
+    type: ControlType.Boolean,
+    title: "Static Export",
+    defaultValue: false,
+    enabledTitle: "Flat",
+    disabledTitle: "Animated",
+  },
+  ariaLabel: {
+    type: ControlType.String,
+    title: "ARIA Label",
+    defaultValue: "Nerva neural network",
+    placeholder: "Screen-reader description",
+  },
 })
