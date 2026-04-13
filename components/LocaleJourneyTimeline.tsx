@@ -1,7 +1,7 @@
 // LocaleJourneyTimeline.tsx
 // Locale-aware year-by-year journey timeline with scroll-linked progress line
 // Automatically switches between RTL and LTR based on Framer locale
-// Version: 1.1.0
+// Version: 1.2.0
 
 import {
     addPropertyControls,
@@ -85,6 +85,35 @@ const RTL_LANGS = new Set(["ar", "he", "fa", "ur"])
 function isRTLLocale(code: string): boolean {
     if (!code) return false
     return RTL_LANGS.has(code.split("-")[0].toLowerCase())
+}
+
+/* ━━━ digit localization ━━━ */
+
+// Map Latin 0-9 to Arabic-Indic ٠-٩ (used by Arabic locale)
+const ARABIC_INDIC_DIGITS = [
+    "\u0660",
+    "\u0661",
+    "\u0662",
+    "\u0663",
+    "\u0664",
+    "\u0665",
+    "\u0666",
+    "\u0667",
+    "\u0668",
+    "\u0669",
+]
+
+function localizeDigits(input: string, localeCode: string): string {
+    if (!input) return input
+    const lang = (localeCode || "").split("-")[0].toLowerCase()
+    if (lang !== "ar") return input
+    let out = ""
+    for (let i = 0; i < input.length; i++) {
+        const c = input.charCodeAt(i)
+        if (c >= 48 && c <= 57) out += ARABIC_INDIC_DIGITS[c - 48]
+        else out += input[i]
+    }
+    return out
 }
 
 /* ━━━ transition constants ━━━ */
@@ -476,7 +505,8 @@ export default function LocaleJourneyTimeline({
                     : initActive
                 const title = ms?.title || `Milestone ${i + 1}`
                 const desc = ms?.description || ""
-                const year = ms?.year || ""
+                const rawYear = ms?.year || ""
+                const year = localizeDigits(rawYear, localeCode || "")
 
                 return (
                     <div
@@ -489,7 +519,7 @@ export default function LocaleJourneyTimeline({
                             position: "relative",
                         }}
                         role="listitem"
-                        aria-label={`${year}: ${title}`}
+                        aria-label={`${rawYear}: ${title}`}
                         aria-current={isActive ? "step" : undefined}
                     >
                         {/* Timeline column: square marker + connector line */}
