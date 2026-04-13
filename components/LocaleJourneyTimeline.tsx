@@ -1,7 +1,7 @@
 // LocaleJourneyTimeline.tsx
 // Locale-aware year-by-year journey timeline with scroll-linked progress line
 // Automatically switches between RTL and LTR based on Framer locale
-// Version: 1.7.0
+// Version: 1.8.0
 
 import {
     addPropertyControls,
@@ -132,6 +132,7 @@ interface Props {
     gap?: number
     animateOnScroll?: boolean
     triggerPoint?: number
+    debugFonts?: boolean
 }
 
 /* ━━━ default data ━━━ */
@@ -225,6 +226,7 @@ export default function LocaleJourneyTimeline({
     gap = 0,
     animateOnScroll = true,
     triggerPoint = 0.7,
+    debugFonts = false,
 }: Props) {
     const isStatic = useIsStaticRenderer()
     const prefersReducedMotion =
@@ -458,6 +460,28 @@ export default function LocaleJourneyTimeline({
                 isRTL ? "\u0645\u062D\u0637\u0627\u062A \u0627\u0644\u0631\u062D\u0644\u0629" : "Journey timeline"
             }
         >
+            {debugFonts && (
+                <pre
+                    style={{
+                        direction: "ltr" as const,
+                        textAlign: "start" as const,
+                        margin: 0,
+                        marginBlockEnd: 16,
+                        padding: 12,
+                        background: "rgba(0,0,0,0.85)",
+                        color: "#fff",
+                        fontFamily:
+                            "ui-monospace, SFMono-Regular, Menlo, monospace",
+                        fontSize: 11,
+                        lineHeight: 1.4,
+                        borderRadius: 8,
+                        whiteSpace: "pre-wrap" as const,
+                        wordBreak: "break-all" as const,
+                    }}
+                >
+                    {`yearFont = ${JSON.stringify(yearFont, null, 2)}\n\ntitleFont = ${JSON.stringify(titleFont, null, 2)}\n\nbodyFont = ${JSON.stringify(bodyFont, null, 2)}`}
+                </pre>
+            )}
             {milestones.map((ms, i) => {
                 const isLast = i === milestones.length - 1
                 const isActive = shouldAnimate
@@ -844,5 +868,12 @@ addPropertyControls(LocaleJourneyTimeline, {
         max: 0.9,
         step: 0.05,
         hidden: (props: Props) => !props.animateOnScroll,
+    },
+    debugFonts: {
+        type: ControlType.Boolean,
+        title: "Debug Fonts",
+        defaultValue: false,
+        enabledTitle: "Show",
+        disabledTitle: "Hide",
     },
 })
