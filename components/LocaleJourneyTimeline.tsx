@@ -1,7 +1,7 @@
 // LocaleJourneyTimeline.tsx
 // Locale-aware year-by-year journey timeline with scroll-linked progress line
 // Automatically switches between RTL and LTR based on Framer locale
-// Version: 1.5.1
+// Version: 1.6.0
 
 import {
     addPropertyControls,
@@ -391,43 +391,20 @@ export default function LocaleJourneyTimeline({
         isRTL,
     ])
 
-    // Memoize font style objects. Defaults first, then spread Framer's raw
-    // font object on top so EVERY property it emits is applied — including
-    // variable-font variants, fontVariationSettings, custom-font family
-    // tokens, etc. (Cherry-picking individual props drops these.)
+    // Font styles inherit entirely from Framer's extended Font control.
+    // We intentionally seed no defaults so nothing on our side competes with
+    // the values Framer emits (fontFamily, fontSize, fontWeight, lineHeight,
+    // letterSpacing, fontStyle, fontVariationSettings, …).
     const yearStyle = useMemo(
-        () => ({
-            fontFamily: "inherit",
-            fontSize: 72,
-            fontWeight: 700,
-            lineHeight: "1em",
-            letterSpacing: "-0.02em",
-            ...(yearFont || {}),
-        }),
+        () => ({ ...(yearFont || {}) }),
         [yearFont]
     )
-
     const titleStyle = useMemo(
-        () => ({
-            fontFamily: "inherit",
-            fontSize: 20,
-            fontWeight: 700,
-            lineHeight: "1.3em",
-            letterSpacing: "-0.01em",
-            ...(titleFont || {}),
-        }),
+        () => ({ ...(titleFont || {}) }),
         [titleFont]
     )
-
     const bodyStyle = useMemo(
-        () => ({
-            fontFamily: "inherit",
-            fontSize: 14,
-            fontWeight: 400,
-            lineHeight: "1.6em",
-            letterSpacing: "0em",
-            ...(bodyFont || {}),
-        }),
+        () => ({ ...(bodyFont || {}) }),
         [bodyFont]
     )
 
@@ -447,12 +424,15 @@ export default function LocaleJourneyTimeline({
 
     const initActive = !shouldAnimate
 
-    // Vertical offset to center marker with the year number.
-    // Derive numeric size from yearStyle.fontSize (number, "72", or "72px").
+    // Vertical offset to center the marker with the year number. We need a
+    // numeric size here purely for layout math — this value never reaches
+    // the DOM style, so Framer's Font control is still the sole source of
+    // what users see. Falls back to 72 if Framer doesn't provide one.
+    const yearFS = (yearFont as any)?.fontSize
     const yearSize =
-        typeof yearStyle.fontSize === "number"
-            ? yearStyle.fontSize
-            : parseFloat(String(yearStyle.fontSize)) || 72
+        typeof yearFS === "number"
+            ? yearFS
+            : parseFloat(String(yearFS)) || 72
     const markerOffset = Math.max(
         0,
         Math.round(yearSize * 0.45 - markerSize * 0.5)
