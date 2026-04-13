@@ -3,7 +3,7 @@
 // Time-based status + rotating product names + auto-changing icons
 // Locale-aware (RTL/LTR), Framer locale handles translations
 // Clock: visitor's local time | Status: Dammam roastery time (Asia/Riyadh)
-// Version: 2.0.0
+// Version: 2.2.0
 
 import {
     addPropertyControls,
@@ -176,22 +176,21 @@ function pickProduct(products: string[], date: Date): string {
     return products[dayOfYear % products.length]
 }
 
-// Clock shows visitor's local time
-function formatVisitorTime(date: Date, locale: string): string {
+// Clock formatter. tz === "auto" → visitor's local time.
+// Any other value is an IANA timezone string (e.g. "Asia/Riyadh").
+function formatClockTime(date: Date, locale: string, tz: string): string {
     const isAr = locale.startsWith("ar") || RTL_LOCALES.has(locale)
     const loc = isAr ? "ar-u-nu-latn" : "en-US"
+    const opts: Intl.DateTimeFormatOptions = {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+    }
+    if (tz && tz !== "auto") opts.timeZone = tz
     try {
-        return date.toLocaleTimeString(loc, {
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-        })
+        return date.toLocaleTimeString(loc, opts)
     } catch {
-        return date.toLocaleTimeString("en-US", {
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-        })
+        return date.toLocaleTimeString("en-US", opts)
     }
 }
 
@@ -222,6 +221,7 @@ interface Props {
     sleepingText?: string
     showTime?: boolean
     showProduct?: boolean
+    clockTimezone?: string
     iconColor?: string
     iconSize?: number
     gap?: number
@@ -259,8 +259,9 @@ export default function RoastingStatus({
     sleepingText = "نحمّص لك بكرة الصبح",
     showTime = true,
     showProduct = true,
+    clockTimezone = "Asia/Riyadh",
     iconColor = "rgb(15, 145, 79)",
-    iconSize = 16,
+    iconSize = 20,
     gap = 8,
     lineGap = 2,
     statusFont,
@@ -269,10 +270,6 @@ export default function RoastingStatus({
     timeColor = "rgba(60, 56, 43, 0.5)",
 }: Props) {
     const isCanvas = RenderTarget.current() === RenderTarget.canvas
-    const prefersReducedMotion =
-        typeof window !== "undefined"
-            ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-            : false
 
     const localeInfo = useLocaleInfo() as any
     const localeCode = extractLocaleCode(localeInfo) || "ar"
@@ -362,11 +359,6 @@ export default function RoastingStatus({
         fontVariantNumeric: "tabular-nums",
     }
 
-    const showPulse =
-        (period === "roasting" || period === "cooling") &&
-        !isCanvas &&
-        !prefersReducedMotion
-
     return (
         <div
             style={{
@@ -381,7 +373,6 @@ export default function RoastingStatus({
         >
             <div
                 style={{
-                    position: "relative",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -391,24 +382,6 @@ export default function RoastingStatus({
                 aria-label={statusMap[period]}
             >
                 {getIcon(period, iconColor, iconSize)}
-                {showPulse && (
-                    <div
-                        aria-hidden="true"
-                        style={{
-                            position: "absolute",
-                            top: "50%",
-                            left: "50%",
-                            width: iconSize + 8,
-                            height: iconSize + 8,
-                            borderRadius: "50%",
-                            border: `1px solid ${iconColor}`,
-                            transform: "translate(-50%, -50%)",
-                            animation:
-                                "roastPulse 2.5s ease-out infinite",
-                            opacity: 0,
-                        }}
-                    />
-                )}
             </div>
 
             <div
@@ -423,19 +396,10 @@ export default function RoastingStatus({
                 <span style={statusTextStyle}>{statusLine}</span>
                 {showTime && (
                     <span style={timeTextStyle}>
-                        {formatVisitorTime(now, localeCode)}
+                        {formatClockTime(now, localeCode, clockTimezone)}
                     </span>
                 )}
             </div>
-
-            {showPulse && (
-                <style>{`
-                    @keyframes roastPulse {
-                        0% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.8); }
-                        100% { opacity: 0; transform: translate(-50%, -50%) scale(1.6); }
-                    }
-                `}</style>
-            )}
         </div>
     )
 }
@@ -469,6 +433,36 @@ addPropertyControls(RoastingStatus, {
         type: ControlType.Boolean,
         title: "Show Time",
         defaultValue: true,
+    },
+    clockTimezone: {
+        type: ControlType.Enum,
+        title: "Clock",
+        defaultValue: "Asia/Riyadh",
+        options: [
+            "Asia/Riyadh",
+            "Asia/Dubai",
+            "Asia/Kuwait",
+            "Asia/Qatar",
+            "Asia/Bahrain",
+            "Asia/Muscat",
+            "Africa/Cairo",
+            "Europe/London",
+            "America/New_York",
+            "auto",
+        ],
+        optionTitles: [
+            "Dammam / Riyadh",
+            "Dubai",
+            "Kuwait",
+            "Doha",
+            "Manama",
+            "Muscat",
+            "Cairo",
+            "London",
+            "New York",
+            "Visitor's Local",
+        ],
+        hidden: (p: Props) => !p.showTime,
     },
 
     roastingText: {
@@ -505,7 +499,7 @@ addPropertyControls(RoastingStatus, {
     iconSize: {
         type: ControlType.Number,
         title: "Icon Size",
-        defaultValue: 16,
+        defaultValue: 20,
         min: 10,
         max: 32,
         step: 1,
