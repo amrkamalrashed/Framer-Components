@@ -1,7 +1,7 @@
 // LocaleJourneyTimeline.tsx
 // Locale-aware year-by-year journey timeline with scroll-linked progress line
 // Automatically switches between RTL and LTR based on Framer locale
-// Version: 1.9.0
+// Version: 2.0.0
 
 import {
     addPropertyControls,
@@ -115,14 +115,6 @@ interface Props {
     yearFont?: Record<string, any>
     titleFont?: Record<string, any>
     bodyFont?: Record<string, any>
-    // CSS font-variation-settings strings. Framer's Variable axes popup
-    // (Weight / Tatweel / Optical / etc.) does NOT pipe its values into
-    // the font object emitted to code components — only basic CSS keys
-    // come through. These per-role strings let users wire variable-font
-    // axes that actually reach the DOM. Format: `'wght' 700, 'opsz' 10`.
-    yearAxes?: string
-    titleAxes?: string
-    bodyAxes?: string
     yearColor?: string
     titleColor?: string
     bodyColor?: string
@@ -140,7 +132,6 @@ interface Props {
     gap?: number
     animateOnScroll?: boolean
     triggerPoint?: number
-    debugFonts?: boolean
 }
 
 /* ━━━ default data ━━━ */
@@ -217,9 +208,6 @@ export default function LocaleJourneyTimeline({
     yearFont,
     titleFont,
     bodyFont,
-    yearAxes,
-    titleAxes,
-    bodyAxes,
     yearColor = "#1A1A1A",
     titleColor = "#1A1A1A",
     bodyColor = "#666666",
@@ -237,7 +225,6 @@ export default function LocaleJourneyTimeline({
     gap = 0,
     animateOnScroll = true,
     triggerPoint = 0.7,
-    debugFonts = false,
 }: Props) {
     const isStatic = useIsStaticRenderer()
     const prefersReducedMotion =
@@ -406,26 +393,18 @@ export default function LocaleJourneyTimeline({
         isRTL,
     ])
 
-    // Font styles inherit from Framer's extended Font control. We then layer
-    // an optional fontVariationSettings string on top — Framer's Variable
-    // axes popup (Weight / Tatweel / Optical / etc.) does not forward its
-    // values into the font object that code components receive, so this
-    // is the only path that actually applies variable-font axes.
-    const yearStyle = useMemo(() => {
-        const s: Record<string, any> = { ...(yearFont || {}) }
-        if (yearAxes) s.fontVariationSettings = yearAxes
-        return s
-    }, [yearFont, yearAxes])
-    const titleStyle = useMemo(() => {
-        const s: Record<string, any> = { ...(titleFont || {}) }
-        if (titleAxes) s.fontVariationSettings = titleAxes
-        return s
-    }, [titleFont, titleAxes])
-    const bodyStyle = useMemo(() => {
-        const s: Record<string, any> = { ...(bodyFont || {}) }
-        if (bodyAxes) s.fontVariationSettings = bodyAxes
-        return s
-    }, [bodyFont, bodyAxes])
+    // Font styles inherit entirely from Framer's extended Font control.
+    // NOTE: variable-font axes (the "Variable" popup — Weight / Tatweel /
+    // Optical / etc.) are a known Framer limitation in code-component
+    // context. Framer serves a placeholder shim family alongside the
+    // actual font (see "…Placeholder" entries in computed styles), so
+    // font-variation-settings applied here has no visible effect. For
+    // variable-axis control use a native Framer Text layer. Here the
+    // Font control still drives family / size / weight variant / line /
+    // letter spacing etc. exactly as Framer emits them.
+    const yearStyle = useMemo(() => ({ ...(yearFont || {}) }), [yearFont])
+    const titleStyle = useMemo(() => ({ ...(titleFont || {}) }), [titleFont])
+    const bodyStyle = useMemo(() => ({ ...(bodyFont || {}) }), [bodyFont])
 
     // Track active milestone for aria-current
     const [activeStep, setActiveStep] = useState(-1)
@@ -475,28 +454,6 @@ export default function LocaleJourneyTimeline({
                 isRTL ? "\u0645\u062D\u0637\u0627\u062A \u0627\u0644\u0631\u062D\u0644\u0629" : "Journey timeline"
             }
         >
-            {debugFonts && (
-                <pre
-                    style={{
-                        direction: "ltr" as const,
-                        textAlign: "start" as const,
-                        margin: 0,
-                        marginBlockEnd: 16,
-                        padding: 12,
-                        background: "rgba(0,0,0,0.85)",
-                        color: "#fff",
-                        fontFamily:
-                            "ui-monospace, SFMono-Regular, Menlo, monospace",
-                        fontSize: 11,
-                        lineHeight: 1.4,
-                        borderRadius: 8,
-                        whiteSpace: "pre-wrap" as const,
-                        wordBreak: "break-all" as const,
-                    }}
-                >
-                    {`yearFont = ${JSON.stringify(yearFont, null, 2)}\n\ntitleFont = ${JSON.stringify(titleFont, null, 2)}\n\nbodyFont = ${JSON.stringify(bodyFont, null, 2)}`}
-                </pre>
-            )}
             {milestones.map((ms, i) => {
                 const isLast = i === milestones.length - 1
                 const isActive = shouldAnimate
@@ -758,26 +715,6 @@ addPropertyControls(LocaleJourneyTimeline, {
             letterSpacing: "0em",
         },
     },
-    // Variable-font axes — Framer's Variable popup doesn't pass these to
-    // code components, so type them here (CSS font-variation-settings).
-    yearAxes: {
-        type: ControlType.String,
-        title: "Year Axes",
-        defaultValue: "",
-        placeholder: "'wght' 700, 'opsz' 10, 'TTWL' 6",
-    },
-    titleAxes: {
-        type: ControlType.String,
-        title: "Title Axes",
-        defaultValue: "",
-        placeholder: "'wght' 700, 'opsz' 10",
-    },
-    bodyAxes: {
-        type: ControlType.String,
-        title: "Body Axes",
-        defaultValue: "",
-        placeholder: "'wght' 400, 'opsz' 10",
-    },
     yearColor: {
         type: ControlType.Color,
         title: "Year Color",
@@ -903,12 +840,5 @@ addPropertyControls(LocaleJourneyTimeline, {
         max: 0.9,
         step: 0.05,
         hidden: (props: Props) => !props.animateOnScroll,
-    },
-    debugFonts: {
-        type: ControlType.Boolean,
-        title: "Debug Fonts",
-        defaultValue: false,
-        enabledTitle: "Show",
-        disabledTitle: "Hide",
     },
 })
