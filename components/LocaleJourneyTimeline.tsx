@@ -1,7 +1,7 @@
 // LocaleJourneyTimeline.tsx
 // Locale-aware year-by-year journey timeline with scroll-linked progress line
 // Automatically switches between RTL and LTR based on Framer locale
-// Version: 1.2.0
+// Version: 1.3.0
 
 import {
     addPropertyControls,
@@ -17,66 +17,6 @@ import {
     useState,
     CSSProperties,
 } from "react"
-
-/* ━━━ font resolver ━━━ */
-
-function resolveFont(
-    font: any,
-    defaults: {
-        size: number
-        weight: number
-        lineHeight: string
-        letterSpacing: string
-    }
-) {
-    if (!font || typeof font !== "object") {
-        return {
-            fontFamily: "inherit",
-            fontSize: defaults.size,
-            fontWeight: defaults.weight,
-            lineHeight: defaults.lineHeight,
-            letterSpacing: defaults.letterSpacing,
-            fontStyle: undefined,
-        }
-    }
-
-    const fontFamily = font.fontFamily || "inherit"
-
-    let fontSize = defaults.size
-    if (font.fontSize != null) {
-        if (typeof font.fontSize === "number") fontSize = font.fontSize
-        else {
-            const p = parseFloat(String(font.fontSize))
-            if (!isNaN(p)) fontSize = p
-        }
-    }
-
-    let fontWeight = defaults.weight
-    if (font.fontWeight != null) {
-        if (typeof font.fontWeight === "number") fontWeight = font.fontWeight
-        else {
-            const p = parseInt(String(font.fontWeight), 10)
-            if (!isNaN(p)) fontWeight = p
-        }
-    }
-
-    let lineHeight: string | number = defaults.lineHeight
-    if (font.lineHeight != null) lineHeight = font.lineHeight
-
-    let letterSpacing: string | number = defaults.letterSpacing
-    if (font.letterSpacing != null) letterSpacing = font.letterSpacing
-
-    const fontStyle = font.fontStyle || undefined
-
-    return {
-        fontFamily,
-        fontSize,
-        fontWeight,
-        lineHeight,
-        letterSpacing,
-        fontStyle,
-    }
-}
 
 /* ━━━ RTL detection ━━━ */
 
@@ -422,37 +362,43 @@ export default function LocaleJourneyTimeline({
         isRTL,
     ])
 
-    // Memoize resolved fonts
-    const yearF = useMemo(
-        () =>
-            resolveFont(yearFont, {
-                size: 72,
-                weight: 700,
-                lineHeight: "1em",
-                letterSpacing: "-0.02em",
-            }),
+    // Memoize font style objects. Defaults first, then spread Framer's raw
+    // font object on top so EVERY property it emits is applied — including
+    // variable-font variants, fontVariationSettings, custom-font family
+    // tokens, etc. (Cherry-picking individual props drops these.)
+    const yearStyle = useMemo(
+        () => ({
+            fontFamily: "inherit",
+            fontSize: 72,
+            fontWeight: 700,
+            lineHeight: "1em",
+            letterSpacing: "-0.02em",
+            ...(yearFont || {}),
+        }),
         [yearFont]
     )
 
-    const titleF = useMemo(
-        () =>
-            resolveFont(titleFont, {
-                size: 20,
-                weight: 700,
-                lineHeight: "1.3em",
-                letterSpacing: "-0.01em",
-            }),
+    const titleStyle = useMemo(
+        () => ({
+            fontFamily: "inherit",
+            fontSize: 20,
+            fontWeight: 700,
+            lineHeight: "1.3em",
+            letterSpacing: "-0.01em",
+            ...(titleFont || {}),
+        }),
         [titleFont]
     )
 
-    const bodyF = useMemo(
-        () =>
-            resolveFont(bodyFont, {
-                size: 14,
-                weight: 400,
-                lineHeight: "1.6em",
-                letterSpacing: "0em",
-            }),
+    const bodyStyle = useMemo(
+        () => ({
+            fontFamily: "inherit",
+            fontSize: 14,
+            fontWeight: 400,
+            lineHeight: "1.6em",
+            letterSpacing: "0em",
+            ...(bodyFont || {}),
+        }),
         [bodyFont]
     )
 
@@ -472,9 +418,12 @@ export default function LocaleJourneyTimeline({
 
     const initActive = !shouldAnimate
 
-    // Vertical offset to center marker with the year number
+    // Vertical offset to center marker with the year number.
+    // Derive numeric size from yearStyle.fontSize (number, "72", or "72px").
     const yearSize =
-        typeof yearF.fontSize === "number" ? yearF.fontSize : 72
+        typeof yearStyle.fontSize === "number"
+            ? yearStyle.fontSize
+            : parseFloat(String(yearStyle.fontSize)) || 72
     const markerOffset = Math.max(
         0,
         Math.round(yearSize * 0.45 - markerSize * 0.5)
@@ -619,12 +568,7 @@ export default function LocaleJourneyTimeline({
                         >
                             <span
                                 style={{
-                                    fontFamily: yearF.fontFamily,
-                                    fontSize: yearF.fontSize,
-                                    fontWeight: yearF.fontWeight,
-                                    lineHeight: yearF.lineHeight,
-                                    letterSpacing: yearF.letterSpacing,
-                                    fontStyle: yearF.fontStyle,
+                                    ...yearStyle,
                                     color: yearColor,
                                     whiteSpace: "nowrap" as const,
                                     userSelect: "none" as const,
@@ -659,12 +603,7 @@ export default function LocaleJourneyTimeline({
                         >
                             <span
                                 style={{
-                                    fontFamily: titleF.fontFamily,
-                                    fontSize: titleF.fontSize,
-                                    fontWeight: titleF.fontWeight,
-                                    lineHeight: titleF.lineHeight,
-                                    letterSpacing: titleF.letterSpacing,
-                                    fontStyle: titleF.fontStyle,
+                                    ...titleStyle,
                                     color: titleColor,
                                     WebkitFontSmoothing:
                                         "antialiased" as any,
@@ -676,12 +615,7 @@ export default function LocaleJourneyTimeline({
                             </span>
                             <span
                                 style={{
-                                    fontFamily: bodyF.fontFamily,
-                                    fontSize: bodyF.fontSize,
-                                    fontWeight: bodyF.fontWeight,
-                                    lineHeight: bodyF.lineHeight,
-                                    letterSpacing: bodyF.letterSpacing,
-                                    fontStyle: bodyF.fontStyle,
+                                    ...bodyStyle,
                                     color: bodyColor,
                                     WebkitFontSmoothing:
                                         "antialiased" as any,
