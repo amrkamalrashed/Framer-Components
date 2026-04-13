@@ -791,6 +791,7 @@ interface Props {
   speed: number
   glowStrength: number
   glowDirection: "inward" | "outward" | "pulse"
+  animations: boolean
   entranceEnabled: boolean
   entranceMode: EntranceMode
   entranceDuration: number
@@ -818,6 +819,7 @@ export default function NervaBrain(props: Props) {
     speed = 3,
     glowStrength = 2,
     glowDirection = "inward" as const,
+    animations = true,
     entranceEnabled = true,
     entranceMode = "scatter" as const,
     entranceDuration = 0.7,
@@ -829,8 +831,9 @@ export default function NervaBrain(props: Props) {
     style,
   } = props
 
-  // Static export: skip animations entirely for SSR/export builds
-  const isExport = staticOnExport && RenderTarget.current() === "export"
+  // Render a flat snapshot when animations are disabled OR during static export build.
+  // Useful for mobile breakpoints / low-power devices / SEO-friendly export.
+  const isStatic = !animations || (staticOnExport && RenderTarget.current() === "export")
 
   const dur = speed
   const cx = 744
@@ -982,8 +985,8 @@ export default function NervaBrain(props: Props) {
 
   `
 
-  // ----- Static export: render flat snapshot, no animation -----
-  if (isExport) {
+  // ----- Flat snapshot: animations off OR static export -----
+  if (isStatic) {
     return (
       <div ref={containerRef} className={scope} role="img" aria-label={ariaLabel}
         style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", ...style }}>
@@ -1140,9 +1143,18 @@ addPropertyControls(NervaBrain, {
   glowColor: { type: ControlType.Color, title: "Glow", defaultValue: "#FF6B8A" },
   terminalColor: { type: ControlType.Color, title: "Terminals", defaultValue: "#FF8FA8" },
 
+  // ----- Animations master switch -----
+  animations: {
+    type: ControlType.Boolean,
+    title: "Animations",
+    defaultValue: true,
+    enabledTitle: "On",
+    disabledTitle: "Off",
+  },
+
   // ----- Idle Animation -----
-  speed: { type: ControlType.Number, title: "Speed", min: 0.5, max: 10, step: 0.5, defaultValue: 3, unit: "s" },
-  glowStrength: { type: ControlType.Number, title: "Glow Blur", min: 1, max: 30, step: 1, defaultValue: 2 },
+  speed: { type: ControlType.Number, title: "Speed", min: 0.5, max: 10, step: 0.5, defaultValue: 3, unit: "s", hidden: (p: any) => !p.animations },
+  glowStrength: { type: ControlType.Number, title: "Glow Blur", min: 1, max: 30, step: 1, defaultValue: 2, hidden: (p: any) => !p.animations },
   glowDirection: {
     type: ControlType.Enum,
     title: "Wave",
@@ -1150,6 +1162,7 @@ addPropertyControls(NervaBrain, {
     optionTitles: ["Inward", "Outward", "Pulse"],
     defaultValue: "inward",
     displaySegmentedControl: true,
+    hidden: (p: any) => !p.animations,
   },
 
   // ----- Entrance Animation -----
@@ -1159,6 +1172,7 @@ addPropertyControls(NervaBrain, {
     defaultValue: true,
     enabledTitle: "On",
     disabledTitle: "Off",
+    hidden: (p: any) => !p.animations,
   },
   entranceMode: {
     type: ControlType.Enum,
@@ -1166,25 +1180,25 @@ addPropertyControls(NervaBrain, {
     options: ["scatter", "bloom", "rise", "sequence", "fade"],
     optionTitles: ["Scatter", "Bloom", "Rise", "Sequence", "Fade"],
     defaultValue: "scatter",
-    hidden: (p: any) => !p.entranceEnabled,
+    hidden: (p: any) => !p.animations || !p.entranceEnabled,
   },
   entranceDuration: {
     type: ControlType.Number,
     title: "Duration",
     min: 0.2, max: 4, step: 0.1, defaultValue: 0.7, unit: "s",
-    hidden: (p: any) => !p.entranceEnabled,
+    hidden: (p: any) => !p.animations || !p.entranceEnabled,
   },
   entranceStagger: {
     type: ControlType.Number,
     title: "Stagger",
     min: 0, max: 0.3, step: 0.01, defaultValue: 0.07, unit: "s",
-    hidden: (p: any) => !p.entranceEnabled,
+    hidden: (p: any) => !p.animations || !p.entranceEnabled,
   },
   entranceDelay: {
     type: ControlType.Number,
     title: "Delay",
     min: 0, max: 3, step: 0.1, defaultValue: 0.25, unit: "s",
-    hidden: (p: any) => !p.entranceEnabled,
+    hidden: (p: any) => !p.animations || !p.entranceEnabled,
   },
 
   // ----- Boot Choreography -----
@@ -1194,6 +1208,7 @@ addPropertyControls(NervaBrain, {
     defaultValue: true,
     enabledTitle: "On",
     disabledTitle: "Off",
+    hidden: (p: any) => !p.animations,
   },
 
   // ----- Performance / A11y -----
