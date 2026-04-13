@@ -1,5 +1,6 @@
 import React from "react"
 import { addPropertyControls, ControlType } from "framer"
+import { motion } from "framer-motion"
 
 const DARK: string[] = [
   "M1480.39 983.833H1428.02",
@@ -754,7 +755,6 @@ const DARK_COMBINED = DARK.join(" ") + " " + DASHED.join(" ")
 const RED_COMBINED = RED.join(" ")
 const GLOW_COMBINED = GLOW.join(" ")
 const RED_GLOW_SLIM_COMBINED = RED_GLOW_SLIM.map(idx => RED[idx]).filter(Boolean).join(" ")
-const LOGO_FILLS_COMBINED = LOGO_FILLS.join(" ")
 
 interface Props {
   logoColor: string
@@ -983,9 +983,30 @@ export default function NervaBrain(props: Props) {
         </g>
 
 
-        {/* Logo brain fills — single combined path */}
+        {/* Logo brain fills — staggered scatter entrance (preloader-style) */}
         <g>
-          <path d={LOGO_FILLS_COMBINED} fill={logoColor} />
+          {LOGO_FILLS.map((d, i) => {
+            const angle = ((i * 137.5) % 360) * (Math.PI / 180)
+            const dist = 18 + (i % 3) * 8
+            const ox = Math.cos(angle) * dist
+            const oy = Math.sin(angle) * dist
+            return (
+              <motion.path
+                key={i}
+                d={d}
+                fill={logoColor}
+                initial={{ opacity: 0, x: ox, y: oy, scale: 0.7, filter: "blur(6px)" }}
+                animate={{ opacity: 1, x: 0, y: 0, scale: 1, filter: "blur(0px)" }}
+                transition={{
+                  duration: 0.7,
+                  delay: i * 0.07 + 0.25,
+                  ease: [0.16, 1, 0.3, 1],
+                  filter: { duration: 0.5, delay: i * 0.07 + 0.3 },
+                }}
+                style={{ transformOrigin: "center center" }}
+              />
+            )
+          })}
         </g>
 
         {/* GLOW LAYERS — wrapped in mask for inward/outward wave sweep */}
