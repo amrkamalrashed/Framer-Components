@@ -1,7 +1,7 @@
 // LocaleJourneyTimeline.tsx
 // Locale-aware year-by-year journey timeline with scroll-linked progress line
 // Automatically switches between RTL and LTR based on Framer locale
-// Version: 1.3.0
+// Version: 1.5.0
 
 import {
     addPropertyControls,
@@ -59,7 +59,7 @@ function localizeDigits(input: string, localeCode: string): string {
 /* ━━━ transition constants ━━━ */
 
 const TRANS = "0.35s"
-const MARKER_TRANSITION = `background-color ${TRANS} ease-out`
+const MARKER_TRANSITION = `background-color ${TRANS} ease-out, border-color ${TRANS} ease-out`
 const YEAR_TRANSITION = `opacity ${TRANS} ease-out`
 const TEXT_TRANSITION = `opacity ${TRANS} ease-out, transform ${TRANS} ease-out`
 const LINE_TRANSITION = "transform 0.08s linear"
@@ -80,13 +80,18 @@ function applyState(
     i: number,
     active: boolean,
     fillColor: string,
+    strokeBefore: string,
+    strokeAfter: string,
     rtl: boolean
 ) {
     const m = els.markers[i]
     const y = els.years[i]
     const t = els.texts[i]
 
-    if (m) m.style.backgroundColor = active ? fillColor : "transparent"
+    if (m) {
+        m.style.backgroundColor = active ? fillColor : "transparent"
+        m.style.borderColor = active ? strokeAfter : strokeBefore
+    }
     if (y) y.style.opacity = active ? "1" : "0.25"
     if (t) {
         t.style.opacity = active ? "1" : "0.3"
@@ -110,6 +115,17 @@ interface Props {
     yearFont?: Record<string, any>
     titleFont?: Record<string, any>
     bodyFont?: Record<string, any>
+    // Custom / variable font escape hatch. Framer's ControlType.Font does not
+    // list project-uploaded custom fonts (the "CUSTOMV2;" category), so these
+    // string controls let users type the exact CSS font-family and
+    // fontVariationSettings for each text role.
+    fontFamily?: string
+    yearFontFamily?: string
+    titleFontFamily?: string
+    bodyFontFamily?: string
+    yearVariationSettings?: string
+    titleVariationSettings?: string
+    bodyVariationSettings?: string
     yearColor?: string
     titleColor?: string
     bodyColor?: string
@@ -120,6 +136,7 @@ interface Props {
     markerRadius?: number
     markerBorderWidth?: number
     markerBorderColor?: string
+    markerActiveBorderColor?: string
     markerActiveColor?: string
     columnGap?: number
     gap?: number
@@ -201,6 +218,13 @@ export default function LocaleJourneyTimeline({
     yearFont,
     titleFont,
     bodyFont,
+    fontFamily = "TS Zunburk VF3 Variable Regular",
+    yearFontFamily,
+    titleFontFamily,
+    bodyFontFamily,
+    yearVariationSettings,
+    titleVariationSettings,
+    bodyVariationSettings,
     yearColor = "#1A1A1A",
     titleColor = "#1A1A1A",
     bodyColor = "#666666",
@@ -211,6 +235,7 @@ export default function LocaleJourneyTimeline({
     markerRadius = 2,
     markerBorderWidth = 2,
     markerBorderColor = "#2A7D6E",
+    markerActiveBorderColor = "#2A7D6E",
     markerActiveColor = "#2A7D6E",
     columnGap = 20,
     gap = 0,
@@ -275,10 +300,26 @@ export default function LocaleJourneyTimeline({
         const prev = els.current.prevActive
         if (newActive !== prev) {
             for (let i = Math.max(0, prev + 1); i <= newActive; i++) {
-                applyState(els.current, i, true, markerActiveColor, isRTL)
+                applyState(
+                    els.current,
+                    i,
+                    true,
+                    markerActiveColor,
+                    markerBorderColor,
+                    markerActiveBorderColor,
+                    isRTL
+                )
             }
             for (let i = prev; i > newActive && i >= 0; i--) {
-                applyState(els.current, i, false, markerActiveColor, isRTL)
+                applyState(
+                    els.current,
+                    i,
+                    false,
+                    markerActiveColor,
+                    markerBorderColor,
+                    markerActiveBorderColor,
+                    isRTL
+                )
             }
             els.current.prevActive = newActive
         }
@@ -313,6 +354,8 @@ export default function LocaleJourneyTimeline({
         milestones.length,
         triggerPoint,
         markerActiveColor,
+        markerBorderColor,
+        markerActiveBorderColor,
         isRTL,
     ])
 
@@ -326,6 +369,8 @@ export default function LocaleJourneyTimeline({
                     i,
                     true,
                     markerActiveColor,
+                    markerBorderColor,
+                    markerActiveBorderColor,
                     isRTL
                 )
                 const f = els.current.lineFills[i]
@@ -359,48 +404,63 @@ export default function LocaleJourneyTimeline({
         updateScroll,
         milestones.length,
         markerActiveColor,
+        markerBorderColor,
+        markerActiveBorderColor,
         isRTL,
     ])
 
-    // Memoize font style objects. Defaults first, then spread Framer's raw
-    // font object on top so EVERY property it emits is applied — including
-    // variable-font variants, fontVariationSettings, custom-font family
-    // tokens, etc. (Cherry-picking individual props drops these.)
-    const yearStyle = useMemo(
-        () => ({
-            fontFamily: "inherit",
+    // Memoize font style objects. Layering order matters:
+    //   1. Defaults (sane fallback + on-brand fontFamily)
+    //   2. ...Framer font object — applies every property Framer emits
+    //      (Google Fonts / system picks, variants, fontVariationSettings...)
+    //   3. Per-role fontFamily override — lets users wire a custom / project
+    //      font (e.g. "TS Zunburk VF3 Variable Regular") that Framer's
+    //      ControlType.Font can't list.
+    //   4. Per-role fontVariationSettings — controls variable-font axes.
+    const yearStyle = useMemo(() => {
+        const s: Record<string, any> = {
+            fontFamily,
             fontSize: 72,
             fontWeight: 700,
             lineHeight: "1em",
             letterSpacing: "-0.02em",
             ...(yearFont || {}),
-        }),
-        [yearFont]
-    )
+        }
+        if (yearFontFamily) s.fontFamily = yearFontFamily
+        if (yearVariationSettings)
+            s.fontVariationSettings = yearVariationSettings
+        return s
+    }, [yearFont, fontFamily, yearFontFamily, yearVariationSettings])
 
-    const titleStyle = useMemo(
-        () => ({
-            fontFamily: "inherit",
+    const titleStyle = useMemo(() => {
+        const s: Record<string, any> = {
+            fontFamily,
             fontSize: 20,
             fontWeight: 700,
             lineHeight: "1.3em",
             letterSpacing: "-0.01em",
             ...(titleFont || {}),
-        }),
-        [titleFont]
-    )
+        }
+        if (titleFontFamily) s.fontFamily = titleFontFamily
+        if (titleVariationSettings)
+            s.fontVariationSettings = titleVariationSettings
+        return s
+    }, [titleFont, fontFamily, titleFontFamily, titleVariationSettings])
 
-    const bodyStyle = useMemo(
-        () => ({
-            fontFamily: "inherit",
+    const bodyStyle = useMemo(() => {
+        const s: Record<string, any> = {
+            fontFamily,
             fontSize: 14,
             fontWeight: 400,
             lineHeight: "1.6em",
             letterSpacing: "0em",
             ...(bodyFont || {}),
-        }),
-        [bodyFont]
-    )
+        }
+        if (bodyFontFamily) s.fontFamily = bodyFontFamily
+        if (bodyVariationSettings)
+            s.fontVariationSettings = bodyVariationSettings
+        return s
+    }, [bodyFont, fontFamily, bodyFontFamily, bodyVariationSettings])
 
     // Track active milestone for aria-current
     const [activeStep, setActiveStep] = useState(-1)
@@ -493,7 +553,9 @@ export default function LocaleJourneyTimeline({
                                     borderRadius: markerRadius,
                                     borderWidth: markerBorderWidth,
                                     borderStyle: "solid",
-                                    borderColor: markerBorderColor,
+                                    borderColor: initActive
+                                        ? markerActiveBorderColor
+                                        : markerBorderColor,
                                     backgroundColor: initActive
                                         ? markerActiveColor
                                         : "transparent",
@@ -701,6 +763,50 @@ addPropertyControls(LocaleJourneyTimeline, {
             letterSpacing: "0em",
         },
     },
+    // Custom / variable font overrides — use these for project-uploaded fonts
+    // that do not appear in Framer's Font picker (e.g. TS Zunburk VF).
+    fontFamily: {
+        type: ControlType.String,
+        title: "Font Family",
+        defaultValue: "TS Zunburk VF3 Variable Regular",
+        placeholder: "e.g. TS Zunburk VF3 Variable Regular",
+    },
+    yearFontFamily: {
+        type: ControlType.String,
+        title: "Year Family",
+        defaultValue: "",
+        placeholder: "Overrides Font Family",
+    },
+    titleFontFamily: {
+        type: ControlType.String,
+        title: "Title Family",
+        defaultValue: "",
+        placeholder: "Overrides Font Family",
+    },
+    bodyFontFamily: {
+        type: ControlType.String,
+        title: "Body Family",
+        defaultValue: "",
+        placeholder: "Overrides Font Family",
+    },
+    yearVariationSettings: {
+        type: ControlType.String,
+        title: "Year Axes",
+        defaultValue: "",
+        placeholder: "'wght' 700, 'wdth' 100",
+    },
+    titleVariationSettings: {
+        type: ControlType.String,
+        title: "Title Axes",
+        defaultValue: "",
+        placeholder: "'wght' 700, 'wdth' 100",
+    },
+    bodyVariationSettings: {
+        type: ControlType.String,
+        title: "Body Axes",
+        defaultValue: "",
+        placeholder: "'wght' 400, 'wdth' 100",
+    },
     yearColor: {
         type: ControlType.Color,
         title: "Year Color",
@@ -768,7 +874,12 @@ addPropertyControls(LocaleJourneyTimeline, {
     },
     markerBorderColor: {
         type: ControlType.Color,
-        title: "Marker Stroke",
+        title: "Stroke Before",
+        defaultValue: "#2A7D6E",
+    },
+    markerActiveBorderColor: {
+        type: ControlType.Color,
+        title: "Stroke After",
         defaultValue: "#2A7D6E",
     },
     markerActiveColor: {
