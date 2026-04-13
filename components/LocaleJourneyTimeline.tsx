@@ -1,7 +1,7 @@
 // LocaleJourneyTimeline.tsx
 // Locale-aware year-by-year journey timeline with scroll-linked progress line
 // Automatically switches between RTL and LTR based on Framer locale
-// Version: 1.5.0
+// Version: 1.5.1
 
 import {
     addPropertyControls,
@@ -115,17 +115,6 @@ interface Props {
     yearFont?: Record<string, any>
     titleFont?: Record<string, any>
     bodyFont?: Record<string, any>
-    // Custom / variable font escape hatch. Framer's ControlType.Font does not
-    // list project-uploaded custom fonts (the "CUSTOMV2;" category), so these
-    // string controls let users type the exact CSS font-family and
-    // fontVariationSettings for each text role.
-    fontFamily?: string
-    yearFontFamily?: string
-    titleFontFamily?: string
-    bodyFontFamily?: string
-    yearVariationSettings?: string
-    titleVariationSettings?: string
-    bodyVariationSettings?: string
     yearColor?: string
     titleColor?: string
     bodyColor?: string
@@ -218,13 +207,6 @@ export default function LocaleJourneyTimeline({
     yearFont,
     titleFont,
     bodyFont,
-    fontFamily = "TS Zunburk VF3 Variable Regular",
-    yearFontFamily,
-    titleFontFamily,
-    bodyFontFamily,
-    yearVariationSettings,
-    titleVariationSettings,
-    bodyVariationSettings,
     yearColor = "#1A1A1A",
     titleColor = "#1A1A1A",
     bodyColor = "#666666",
@@ -409,58 +391,45 @@ export default function LocaleJourneyTimeline({
         isRTL,
     ])
 
-    // Memoize font style objects. Layering order matters:
-    //   1. Defaults (sane fallback + on-brand fontFamily)
-    //   2. ...Framer font object — applies every property Framer emits
-    //      (Google Fonts / system picks, variants, fontVariationSettings...)
-    //   3. Per-role fontFamily override — lets users wire a custom / project
-    //      font (e.g. "TS Zunburk VF3 Variable Regular") that Framer's
-    //      ControlType.Font can't list.
-    //   4. Per-role fontVariationSettings — controls variable-font axes.
-    const yearStyle = useMemo(() => {
-        const s: Record<string, any> = {
-            fontFamily,
+    // Memoize font style objects. Defaults first, then spread Framer's raw
+    // font object on top so EVERY property it emits is applied — including
+    // variable-font variants, fontVariationSettings, custom-font family
+    // tokens, etc. (Cherry-picking individual props drops these.)
+    const yearStyle = useMemo(
+        () => ({
+            fontFamily: "inherit",
             fontSize: 72,
             fontWeight: 700,
             lineHeight: "1em",
             letterSpacing: "-0.02em",
             ...(yearFont || {}),
-        }
-        if (yearFontFamily) s.fontFamily = yearFontFamily
-        if (yearVariationSettings)
-            s.fontVariationSettings = yearVariationSettings
-        return s
-    }, [yearFont, fontFamily, yearFontFamily, yearVariationSettings])
+        }),
+        [yearFont]
+    )
 
-    const titleStyle = useMemo(() => {
-        const s: Record<string, any> = {
-            fontFamily,
+    const titleStyle = useMemo(
+        () => ({
+            fontFamily: "inherit",
             fontSize: 20,
             fontWeight: 700,
             lineHeight: "1.3em",
             letterSpacing: "-0.01em",
             ...(titleFont || {}),
-        }
-        if (titleFontFamily) s.fontFamily = titleFontFamily
-        if (titleVariationSettings)
-            s.fontVariationSettings = titleVariationSettings
-        return s
-    }, [titleFont, fontFamily, titleFontFamily, titleVariationSettings])
+        }),
+        [titleFont]
+    )
 
-    const bodyStyle = useMemo(() => {
-        const s: Record<string, any> = {
-            fontFamily,
+    const bodyStyle = useMemo(
+        () => ({
+            fontFamily: "inherit",
             fontSize: 14,
             fontWeight: 400,
             lineHeight: "1.6em",
             letterSpacing: "0em",
             ...(bodyFont || {}),
-        }
-        if (bodyFontFamily) s.fontFamily = bodyFontFamily
-        if (bodyVariationSettings)
-            s.fontVariationSettings = bodyVariationSettings
-        return s
-    }, [bodyFont, fontFamily, bodyFontFamily, bodyVariationSettings])
+        }),
+        [bodyFont]
+    )
 
     // Track active milestone for aria-current
     const [activeStep, setActiveStep] = useState(-1)
@@ -762,50 +731,6 @@ addPropertyControls(LocaleJourneyTimeline, {
             lineHeight: "1.6em",
             letterSpacing: "0em",
         },
-    },
-    // Custom / variable font overrides — use these for project-uploaded fonts
-    // that do not appear in Framer's Font picker (e.g. TS Zunburk VF).
-    fontFamily: {
-        type: ControlType.String,
-        title: "Font Family",
-        defaultValue: "TS Zunburk VF3 Variable Regular",
-        placeholder: "e.g. TS Zunburk VF3 Variable Regular",
-    },
-    yearFontFamily: {
-        type: ControlType.String,
-        title: "Year Family",
-        defaultValue: "",
-        placeholder: "Overrides Font Family",
-    },
-    titleFontFamily: {
-        type: ControlType.String,
-        title: "Title Family",
-        defaultValue: "",
-        placeholder: "Overrides Font Family",
-    },
-    bodyFontFamily: {
-        type: ControlType.String,
-        title: "Body Family",
-        defaultValue: "",
-        placeholder: "Overrides Font Family",
-    },
-    yearVariationSettings: {
-        type: ControlType.String,
-        title: "Year Axes",
-        defaultValue: "",
-        placeholder: "'wght' 700, 'wdth' 100",
-    },
-    titleVariationSettings: {
-        type: ControlType.String,
-        title: "Title Axes",
-        defaultValue: "",
-        placeholder: "'wght' 700, 'wdth' 100",
-    },
-    bodyVariationSettings: {
-        type: ControlType.String,
-        title: "Body Axes",
-        defaultValue: "",
-        placeholder: "'wght' 400, 'wdth' 100",
     },
     yearColor: {
         type: ControlType.Color,
