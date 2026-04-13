@@ -1,7 +1,7 @@
 // LocaleJourneyTimeline.tsx
 // Locale-aware year-by-year journey timeline with scroll-linked progress line
 // Automatically switches between RTL and LTR based on Framer locale
-// Version: 1.8.0
+// Version: 1.9.0
 
 import {
     addPropertyControls,
@@ -115,6 +115,14 @@ interface Props {
     yearFont?: Record<string, any>
     titleFont?: Record<string, any>
     bodyFont?: Record<string, any>
+    // CSS font-variation-settings strings. Framer's Variable axes popup
+    // (Weight / Tatweel / Optical / etc.) does NOT pipe its values into
+    // the font object emitted to code components — only basic CSS keys
+    // come through. These per-role strings let users wire variable-font
+    // axes that actually reach the DOM. Format: `'wght' 700, 'opsz' 10`.
+    yearAxes?: string
+    titleAxes?: string
+    bodyAxes?: string
     yearColor?: string
     titleColor?: string
     bodyColor?: string
@@ -209,6 +217,9 @@ export default function LocaleJourneyTimeline({
     yearFont,
     titleFont,
     bodyFont,
+    yearAxes,
+    titleAxes,
+    bodyAxes,
     yearColor = "#1A1A1A",
     titleColor = "#1A1A1A",
     bodyColor = "#666666",
@@ -395,22 +406,26 @@ export default function LocaleJourneyTimeline({
         isRTL,
     ])
 
-    // Font styles inherit entirely from Framer's extended Font control.
-    // We intentionally seed no defaults so nothing on our side competes with
-    // the values Framer emits (fontFamily, fontSize, fontWeight, lineHeight,
-    // letterSpacing, fontStyle, fontVariationSettings, …).
-    const yearStyle = useMemo(
-        () => ({ ...(yearFont || {}) }),
-        [yearFont]
-    )
-    const titleStyle = useMemo(
-        () => ({ ...(titleFont || {}) }),
-        [titleFont]
-    )
-    const bodyStyle = useMemo(
-        () => ({ ...(bodyFont || {}) }),
-        [bodyFont]
-    )
+    // Font styles inherit from Framer's extended Font control. We then layer
+    // an optional fontVariationSettings string on top — Framer's Variable
+    // axes popup (Weight / Tatweel / Optical / etc.) does not forward its
+    // values into the font object that code components receive, so this
+    // is the only path that actually applies variable-font axes.
+    const yearStyle = useMemo(() => {
+        const s: Record<string, any> = { ...(yearFont || {}) }
+        if (yearAxes) s.fontVariationSettings = yearAxes
+        return s
+    }, [yearFont, yearAxes])
+    const titleStyle = useMemo(() => {
+        const s: Record<string, any> = { ...(titleFont || {}) }
+        if (titleAxes) s.fontVariationSettings = titleAxes
+        return s
+    }, [titleFont, titleAxes])
+    const bodyStyle = useMemo(() => {
+        const s: Record<string, any> = { ...(bodyFont || {}) }
+        if (bodyAxes) s.fontVariationSettings = bodyAxes
+        return s
+    }, [bodyFont, bodyAxes])
 
     // Track active milestone for aria-current
     const [activeStep, setActiveStep] = useState(-1)
@@ -742,6 +757,26 @@ addPropertyControls(LocaleJourneyTimeline, {
             lineHeight: "1.6em",
             letterSpacing: "0em",
         },
+    },
+    // Variable-font axes — Framer's Variable popup doesn't pass these to
+    // code components, so type them here (CSS font-variation-settings).
+    yearAxes: {
+        type: ControlType.String,
+        title: "Year Axes",
+        defaultValue: "",
+        placeholder: "'wght' 700, 'opsz' 10, 'TTWL' 6",
+    },
+    titleAxes: {
+        type: ControlType.String,
+        title: "Title Axes",
+        defaultValue: "",
+        placeholder: "'wght' 700, 'opsz' 10",
+    },
+    bodyAxes: {
+        type: ControlType.String,
+        title: "Body Axes",
+        defaultValue: "",
+        placeholder: "'wght' 400, 'opsz' 10",
     },
     yearColor: {
         type: ControlType.Color,
