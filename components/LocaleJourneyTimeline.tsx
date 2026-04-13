@@ -1,7 +1,7 @@
 // LocaleJourneyTimeline.tsx
 // Locale-aware year-by-year journey timeline with scroll-linked progress line
 // Automatically switches between RTL and LTR based on Framer locale
-// Version: 1.0.0
+// Version: 1.1.0
 
 import {
     addPropertyControls,
@@ -163,57 +163,56 @@ interface Props {
 const DEFAULT_MILESTONES: MilestoneItem[] = [
     {
         year: "2018",
-        title: "The Foundation",
+        title: "التأسيس",
         description:
-            "Started as a local roastery, earning the trust of the coffee community in the region.",
+            "بدأت محمصة سويل كمحمصة محلية في الدمام، واكتسبت ثقة مجتمع القهوة في المنطقة الشرقية.",
     },
     {
         year: "2019",
-        title: "Building the Base",
+        title: "بناء الأساس",
         description:
-            "Expanding the client network, developing roast profiles, and establishing a roasting identity.",
+            "توسيع شبكة العملاء، تطوير البروفايلات، وترسيخ هوية التحميص.",
     },
     {
         year: "2020",
-        title: "The Shift",
+        title: "التحول",
         description:
-            "Full focus on roasting and launching the online store in response to market changes.",
+            "التركيز الكامل على التحميص وإطلاق المتجر الإلكتروني استجابة لتغير السوق.",
     },
     {
         year: "2021",
-        title: "Growth & Continuity",
+        title: "الاستمرار والنمو",
         description:
-            "Expanding partnerships and retail points while maintaining consistency and quality.",
+            "توسيع الشراكات وزيادة نقاط البيع مع الحفاظ على الثبات والجودة.",
     },
     {
         year: "2022",
-        title: "National Reach",
+        title: "الانتشار الوطني",
         description:
-            "Rising demand across the country and scaling production capacity.",
+            "ارتفاع الطلب على مستوى المملكة، وتطوير القدرة الإنتاجية.",
     },
     {
         year: "2023",
-        title: "The Direct Experience",
+        title: "التجربة المباشرة",
         description:
-            "Opening a flagship cafe, connecting the roastery with the daily coffee experience.",
+            "افتتاح مقهى سويل في الخبر، وربط المحمصة بالتجربة اليومية.",
     },
     {
         year: "2024",
-        title: "Regional Expansion",
-        description:
-            "Reaching new markets, growing the team and operations.",
+        title: "التوسع الإقليمي",
+        description: "الوصول إلى أسواق الخليج، وتكبير الفريق والعمليات.",
     },
     {
         year: "2025",
-        title: "A Step Forward",
+        title: "خطوة للأمام",
         description:
-            "Moving to an advanced facility equipped with the latest roasting technology.",
+            "الانتقال إلى مصنع متطور في المدينة الصناعية الثانية بالدمام، مجهز بأحدث تقنيات التحميص.",
     },
     {
         year: "2026",
-        title: "The Next Chapter",
+        title: "المرحلة القادمة",
         description:
-            "Continuing to grow while preserving our identity: precise roasting, transparent sourcing, and lasting impact.",
+            "نستمر في التوسع مع الحفاظ على الهوية: تحميص دقيق، مصدر شفاف، وأثر مستدام.",
     },
 ]
 
@@ -526,39 +525,53 @@ export default function LocaleJourneyTimeline({
                                 aria-hidden="true"
                             />
 
-                            {/* Connector line — scaleY driven by scroll */}
+                            {/* Connector line — extends continuously from
+                                the current square down through the next row's
+                                top padding so there is no visible gap between
+                                items. Scroll-driven fill scales on top. */}
                             {!isLast && (
                                 <div
                                     style={{
                                         flex: 1,
                                         width: lineWidth,
-                                        backgroundColor: lineColor,
                                         position: "relative" as const,
-                                        overflow: "hidden" as const,
-                                        marginBlockStart: 8,
-                                        marginBlockEnd: 8,
                                         minHeight: 24,
                                     }}
                                 >
                                     <div
-                                        ref={(el) => {
-                                            els.current.lineFills[i] = el
-                                        }}
                                         style={{
                                             position: "absolute" as const,
                                             top: 0,
                                             insetInlineStart: 0,
                                             width: "100%",
-                                            height: "100%",
-                                            backgroundColor:
-                                                lineFilledColor,
-                                            transformOrigin: "top center",
-                                            transform: initActive
-                                                ? "scaleY(1)"
-                                                : "scaleY(0)",
-                                            transition: LINE_TRANSITION,
+                                            // Overflow into next row's
+                                            // markerOffset padding so the
+                                            // line touches the next square.
+                                            height: `calc(100% + ${markerOffset}px)`,
+                                            backgroundColor: lineColor,
+                                            overflow: "hidden" as const,
                                         }}
-                                    />
+                                    >
+                                        <div
+                                            ref={(el) => {
+                                                els.current.lineFills[i] = el
+                                            }}
+                                            style={{
+                                                position: "absolute" as const,
+                                                top: 0,
+                                                insetInlineStart: 0,
+                                                width: "100%",
+                                                height: "100%",
+                                                backgroundColor:
+                                                    lineFilledColor,
+                                                transformOrigin: "top center",
+                                                transform: initActive
+                                                    ? "scaleY(1)"
+                                                    : "scaleY(0)",
+                                                transition: LINE_TRANSITION,
+                                            }}
+                                        />
+                                    </div>
                                 </div>
                             )}
                         </div>
