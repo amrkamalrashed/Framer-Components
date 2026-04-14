@@ -1,7 +1,7 @@
 // LocaleJourneyTimeline.tsx
 // Locale-aware year-by-year journey timeline with scroll-linked progress line
 // Automatically switches between RTL and LTR based on Framer locale
-// Version: 1.3.0
+// Version: 2.1.0
 
 import {
     addPropertyControls,
@@ -59,7 +59,7 @@ function localizeDigits(input: string, localeCode: string): string {
 /* ━━━ transition constants ━━━ */
 
 const TRANS = "0.35s"
-const MARKER_TRANSITION = `background-color ${TRANS} ease-out`
+const MARKER_TRANSITION = `background-color ${TRANS} ease-out, border-color ${TRANS} ease-out`
 const YEAR_TRANSITION = `opacity ${TRANS} ease-out`
 const TEXT_TRANSITION = `opacity ${TRANS} ease-out, transform ${TRANS} ease-out`
 const LINE_TRANSITION = "transform 0.08s linear"
@@ -80,13 +80,18 @@ function applyState(
     i: number,
     active: boolean,
     fillColor: string,
+    strokeBefore: string,
+    strokeAfter: string,
     rtl: boolean
 ) {
     const m = els.markers[i]
     const y = els.years[i]
     const t = els.texts[i]
 
-    if (m) m.style.backgroundColor = active ? fillColor : "transparent"
+    if (m) {
+        m.style.backgroundColor = active ? fillColor : "transparent"
+        m.style.borderColor = active ? strokeAfter : strokeBefore
+    }
     if (y) y.style.opacity = active ? "1" : "0.25"
     if (t) {
         t.style.opacity = active ? "1" : "0.3"
@@ -120,9 +125,13 @@ interface Props {
     markerRadius?: number
     markerBorderWidth?: number
     markerBorderColor?: string
+    markerActiveBorderColor?: string
     markerActiveColor?: string
+    yearWidth?: number
     columnGap?: number
     gap?: number
+    stackVertically?: boolean
+    stackGap?: number
     animateOnScroll?: boolean
     triggerPoint?: number
 }
@@ -211,9 +220,13 @@ export default function LocaleJourneyTimeline({
     markerRadius = 2,
     markerBorderWidth = 2,
     markerBorderColor = "#2A7D6E",
+    markerActiveBorderColor = "#2A7D6E",
     markerActiveColor = "#2A7D6E",
+    yearWidth = 160,
     columnGap = 20,
     gap = 0,
+    stackVertically = false,
+    stackGap = 8,
     animateOnScroll = true,
     triggerPoint = 0.7,
 }: Props) {
@@ -275,10 +288,26 @@ export default function LocaleJourneyTimeline({
         const prev = els.current.prevActive
         if (newActive !== prev) {
             for (let i = Math.max(0, prev + 1); i <= newActive; i++) {
-                applyState(els.current, i, true, markerActiveColor, isRTL)
+                applyState(
+                    els.current,
+                    i,
+                    true,
+                    markerActiveColor,
+                    markerBorderColor,
+                    markerActiveBorderColor,
+                    isRTL
+                )
             }
             for (let i = prev; i > newActive && i >= 0; i--) {
-                applyState(els.current, i, false, markerActiveColor, isRTL)
+                applyState(
+                    els.current,
+                    i,
+                    false,
+                    markerActiveColor,
+                    markerBorderColor,
+                    markerActiveBorderColor,
+                    isRTL
+                )
             }
             els.current.prevActive = newActive
         }
@@ -313,6 +342,8 @@ export default function LocaleJourneyTimeline({
         milestones.length,
         triggerPoint,
         markerActiveColor,
+        markerBorderColor,
+        markerActiveBorderColor,
         isRTL,
     ])
 
@@ -326,6 +357,8 @@ export default function LocaleJourneyTimeline({
                     i,
                     true,
                     markerActiveColor,
+                    markerBorderColor,
+                    markerActiveBorderColor,
                     isRTL
                 )
                 const f = els.current.lineFills[i]
@@ -359,48 +392,23 @@ export default function LocaleJourneyTimeline({
         updateScroll,
         milestones.length,
         markerActiveColor,
+        markerBorderColor,
+        markerActiveBorderColor,
         isRTL,
     ])
 
-    // Memoize font style objects. Defaults first, then spread Framer's raw
-    // font object on top so EVERY property it emits is applied — including
-    // variable-font variants, fontVariationSettings, custom-font family
-    // tokens, etc. (Cherry-picking individual props drops these.)
-    const yearStyle = useMemo(
-        () => ({
-            fontFamily: "inherit",
-            fontSize: 72,
-            fontWeight: 700,
-            lineHeight: "1em",
-            letterSpacing: "-0.02em",
-            ...(yearFont || {}),
-        }),
-        [yearFont]
-    )
-
-    const titleStyle = useMemo(
-        () => ({
-            fontFamily: "inherit",
-            fontSize: 20,
-            fontWeight: 700,
-            lineHeight: "1.3em",
-            letterSpacing: "-0.01em",
-            ...(titleFont || {}),
-        }),
-        [titleFont]
-    )
-
-    const bodyStyle = useMemo(
-        () => ({
-            fontFamily: "inherit",
-            fontSize: 14,
-            fontWeight: 400,
-            lineHeight: "1.6em",
-            letterSpacing: "0em",
-            ...(bodyFont || {}),
-        }),
-        [bodyFont]
-    )
+    // Font styles inherit entirely from Framer's extended Font control.
+    // NOTE: variable-font axes (the "Variable" popup — Weight / Tatweel /
+    // Optical / etc.) are a known Framer limitation in code-component
+    // context. Framer serves a placeholder shim family alongside the
+    // actual font (see "…Placeholder" entries in computed styles), so
+    // font-variation-settings applied here has no visible effect. For
+    // variable-axis control use a native Framer Text layer. Here the
+    // Font control still drives family / size / weight variant / line /
+    // letter spacing etc. exactly as Framer emits them.
+    const yearStyle = useMemo(() => ({ ...(yearFont || {}) }), [yearFont])
+    const titleStyle = useMemo(() => ({ ...(titleFont || {}) }), [titleFont])
+    const bodyStyle = useMemo(() => ({ ...(bodyFont || {}) }), [bodyFont])
 
     // Track active milestone for aria-current
     const [activeStep, setActiveStep] = useState(-1)
@@ -418,12 +426,15 @@ export default function LocaleJourneyTimeline({
 
     const initActive = !shouldAnimate
 
-    // Vertical offset to center marker with the year number.
-    // Derive numeric size from yearStyle.fontSize (number, "72", or "72px").
+    // Vertical offset to center the marker with the year number. We need a
+    // numeric size here purely for layout math — this value never reaches
+    // the DOM style, so Framer's Font control is still the sole source of
+    // what users see. Falls back to 72 if Framer doesn't provide one.
+    const yearFS = (yearFont as any)?.fontSize
     const yearSize =
-        typeof yearStyle.fontSize === "number"
-            ? yearStyle.fontSize
-            : parseFloat(String(yearStyle.fontSize)) || 72
+        typeof yearFS === "number"
+            ? yearFS
+            : parseFloat(String(yearFS)) || 72
     const markerOffset = Math.max(
         0,
         Math.round(yearSize * 0.45 - markerSize * 0.5)
@@ -471,7 +482,10 @@ export default function LocaleJourneyTimeline({
                         aria-label={`${rawYear}: ${title}`}
                         aria-current={isActive ? "step" : undefined}
                     >
-                        {/* Timeline column: square marker + connector line */}
+                        {/* Timeline column: square marker + connector line.
+                            Outer row stays horizontal so the timeline stays
+                            on the side. The year + text sub-container below
+                            flips to column when stackVertically is on. */}
                         <div
                             style={{
                                 display: "flex",
@@ -493,7 +507,9 @@ export default function LocaleJourneyTimeline({
                                     borderRadius: markerRadius,
                                     borderWidth: markerBorderWidth,
                                     borderStyle: "solid",
-                                    borderColor: markerBorderColor,
+                                    borderColor: initActive
+                                        ? markerActiveBorderColor
+                                        : markerBorderColor,
                                     backgroundColor: initActive
                                         ? markerActiveColor
                                         : "transparent",
@@ -555,76 +571,111 @@ export default function LocaleJourneyTimeline({
                             )}
                         </div>
 
-                        {/* Year column — large display number */}
+                        {/* Year + content sub-container. Horizontal by
+                            default; flips to vertical stack when
+                            stackVertically is on (use this on the Phone
+                            breakpoint to get year on top of text). */}
                         <div
-                            ref={(el) => {
-                                els.current.years[i] = el
-                            }}
-                            style={{
-                                flexShrink: 0,
-                                opacity: initActive ? 1 : 0.25,
-                                transition: YEAR_TRANSITION,
-                            }}
-                        >
-                            <span
-                                style={{
-                                    ...yearStyle,
-                                    color: yearColor,
-                                    whiteSpace: "nowrap" as const,
-                                    userSelect: "none" as const,
-                                    WebkitFontSmoothing:
-                                        "antialiased" as any,
-                                    MozOsxFontSmoothing:
-                                        "grayscale" as any,
-                                }}
-                            >
-                                {year}
-                            </span>
-                        </div>
-
-                        {/* Content column — title + description */}
-                        <div
-                            ref={(el) => {
-                                els.current.texts[i] = el
-                            }}
                             style={{
                                 flex: 1,
                                 display: "flex",
-                                flexDirection: "column" as const,
-                                gap: 6,
-                                paddingBlockEnd: isLast ? 0 : 48,
-                                paddingBlockStart: contentOffset,
-                                opacity: initActive ? 1 : 0.3,
-                                transform: initActive
-                                    ? "translateX(0)"
-                                    : `translateX(${isRTL ? "8px" : "-8px"})`,
-                                transition: TEXT_TRANSITION,
+                                flexDirection: stackVertically
+                                    ? ("column" as const)
+                                    : ("row" as const),
+                                alignItems: stackVertically
+                                    ? ("flex-start" as const)
+                                    : ("stretch" as const),
+                                columnGap: stackVertically ? 0 : columnGap,
+                                rowGap: stackVertically ? stackGap : 0,
+                                minWidth: 0,
                             }}
                         >
-                            <span
+                            {/* Year column. In row mode: fixed width +
+                                end-aligned so content starts at a
+                                predictable position. In stacked mode:
+                                natural width, start-aligned (flows with
+                                the text below). */}
+                            <div
+                                ref={(el) => {
+                                    els.current.years[i] = el
+                                }}
                                 style={{
-                                    ...titleStyle,
-                                    color: titleColor,
-                                    WebkitFontSmoothing:
-                                        "antialiased" as any,
-                                    MozOsxFontSmoothing:
-                                        "grayscale" as any,
+                                    flexShrink: 0,
+                                    width: stackVertically
+                                        ? "auto"
+                                        : yearWidth,
+                                    textAlign: stackVertically
+                                        ? ("start" as const)
+                                        : ("end" as const),
+                                    opacity: initActive ? 1 : 0.25,
+                                    transition: YEAR_TRANSITION,
                                 }}
                             >
-                                {title}
-                            </span>
-                            <span
+                                <span
+                                    style={{
+                                        ...yearStyle,
+                                        color: yearColor,
+                                        whiteSpace: "nowrap" as const,
+                                        userSelect: "none" as const,
+                                        WebkitFontSmoothing:
+                                            "antialiased" as any,
+                                        MozOsxFontSmoothing:
+                                            "grayscale" as any,
+                                    }}
+                                >
+                                    {year}
+                                </span>
+                            </div>
+
+                            {/* Content column — title + description */}
+                            <div
+                                ref={(el) => {
+                                    els.current.texts[i] = el
+                                }}
                                 style={{
-                                    ...bodyStyle,
-                                    color: bodyColor,
-                                    WebkitFontSmoothing:
-                                        "antialiased" as any,
-                                    MozOsxFontSmoothing:
-                                        "grayscale" as any,
+                                    flex: stackVertically ? "none" : 1,
+                                    width: stackVertically
+                                        ? ("100%" as const)
+                                        : "auto",
+                                    display: "flex",
+                                    flexDirection: "column" as const,
+                                    gap: 6,
+                                    paddingBlockEnd: isLast ? 0 : 48,
+                                    paddingBlockStart: stackVertically
+                                        ? 0
+                                        : contentOffset,
+                                    opacity: initActive ? 1 : 0.3,
+                                    transform: initActive
+                                        ? "translateX(0)"
+                                        : `translateX(${isRTL ? "8px" : "-8px"})`,
+                                    transition: TEXT_TRANSITION,
                                 }}
                             >
-                                {desc}
-                            </span>
+                                <span
+                                    style={{
+                                        ...titleStyle,
+                                        color: titleColor,
+                                        WebkitFontSmoothing:
+                                            "antialiased" as any,
+                                        MozOsxFontSmoothing:
+                                            "grayscale" as any,
+                                    }}
+                                >
+                                    {title}
+                                </span>
+                                <span
+                                    style={{
+                                        ...bodyStyle,
+                                        color: bodyColor,
+                                        WebkitFontSmoothing:
+                                            "antialiased" as any,
+                                        MozOsxFontSmoothing:
+                                            "grayscale" as any,
+                                    }}
+                                >
+                                    {desc}
+                                </span>
+                            </div>
                         </div>
                     </div>
                 )
@@ -768,13 +819,28 @@ addPropertyControls(LocaleJourneyTimeline, {
     },
     markerBorderColor: {
         type: ControlType.Color,
-        title: "Marker Stroke",
+        title: "Stroke Before",
+        defaultValue: "#2A7D6E",
+    },
+    markerActiveBorderColor: {
+        type: ControlType.Color,
+        title: "Stroke After",
         defaultValue: "#2A7D6E",
     },
     markerActiveColor: {
         type: ControlType.Color,
         title: "Marker Fill",
         defaultValue: "#2A7D6E",
+    },
+    yearWidth: {
+        type: ControlType.Number,
+        title: "Year Width",
+        defaultValue: 160,
+        min: 60,
+        max: 400,
+        step: 4,
+        unit: "px",
+        displayStepper: true,
     },
     columnGap: {
         type: ControlType.Number,
@@ -795,6 +861,24 @@ addPropertyControls(LocaleJourneyTimeline, {
         step: 4,
         unit: "px",
         displayStepper: true,
+    },
+    stackVertically: {
+        type: ControlType.Boolean,
+        title: "Stack",
+        defaultValue: false,
+        enabledTitle: "Vertical",
+        disabledTitle: "Horizontal",
+    },
+    stackGap: {
+        type: ControlType.Number,
+        title: "Stack Gap",
+        defaultValue: 8,
+        min: 0,
+        max: 32,
+        step: 2,
+        unit: "px",
+        displayStepper: true,
+        hidden: (props: Props) => !props.stackVertically,
     },
     animateOnScroll: {
         type: ControlType.Boolean,
